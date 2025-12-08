@@ -1,10 +1,10 @@
-package pl.edu.agh.to.kotospring;
+package pl.edu.agh.to.kotospring.server;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ClientTests {
+class ApplicationTests {
 
     @Test
     void contextLoads() {

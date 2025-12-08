@@ -1,13 +1,13 @@
-package pl.edu.agh.to.kotospring;
+package pl.edu.agh.to.kotospring.server;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class Client {
+public class Application {
 
     public static void main(String[] args) {
-        SpringApplication.run(Client.class, args);
+        SpringApplication.run(Application.class, args);
     }
 
 }
