@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.server.problems;
 
+import org.moeaframework.core.population.NondominatedPopulation;
 import org.moeaframework.core.spi.ProviderNotFoundException;
 import org.moeaframework.core.spi.RegisteredAlgorithmProvider;
 import org.moeaframework.core.spi.RegisteredProblemProvider;
@@ -27,10 +28,19 @@ public class ProblemRegistryService {
         return result;
     }
 
-    public Problem getProblem(String name) {
+    public Problem getProblem(String name) throws ProviderNotFoundException {
         for (RegisteredProblemProvider provider : providers) {
             if (provider.getRegisteredProblems().contains(name)) {
                 return provider.getProblem(name);
+            }
+        }
+        throw new ProviderNotFoundException(name);
+    }
+
+    public NondominatedPopulation getReferenceSet(String name) throws ProviderNotFoundException {
+        for (RegisteredProblemProvider provider : providers) {
+            if (provider.getRegisteredProblems().contains(name)) {
+                return provider.getReferenceSet(name);
             }
         }
         throw new ProviderNotFoundException(name);

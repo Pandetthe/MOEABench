@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.server.indicators;
 
+import org.moeaframework.core.indicator.Indicators;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
