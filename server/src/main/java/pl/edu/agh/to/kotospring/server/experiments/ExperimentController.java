@@ -7,9 +7,9 @@ import org.moeaframework.core.spi.ProviderNotFoundException;
 import org.moeaframework.problem.Problem;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pl.edu.agh.to.kotospring.server.algorithms.AlgorithmRegistryService;
-import pl.edu.agh.to.kotospring.server.indicators.IndicatorRegistryService;
-import pl.edu.agh.to.kotospring.server.problems.ProblemRegistryService;
+import pl.edu.agh.to.kotospring.server.algorithms.AlgorithmRegistry;
+import pl.edu.agh.to.kotospring.server.indicators.IndicatorRegistry;
+import pl.edu.agh.to.kotospring.server.problems.ProblemRegistry;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.util.List;
@@ -17,24 +17,24 @@ import java.util.List;
 @RestController
 @RequestMapping(path = "/experiments")
 public class ExperimentController {
-    private final ProblemRegistryService problemRegistryService;
-    private final AlgorithmRegistryService algorithmRegistryService;
-    private final IndicatorRegistryService indicatorRegistryService;
+    private final ProblemRegistry problemRegistry;
+    private final AlgorithmRegistry algorithmRegistry;
+    private final IndicatorRegistry indicatorRegistry;
 
-    public ExperimentController(ProblemRegistryService problemRegistryService,
-                                AlgorithmRegistryService algorithmRegistryService,
-                                IndicatorRegistryService indicatorRegistryService) {
-        this.problemRegistryService = problemRegistryService;
-        this.algorithmRegistryService = algorithmRegistryService;
-        this.indicatorRegistryService = indicatorRegistryService;
+    public ExperimentController(ProblemRegistry problemRegistry,
+                                AlgorithmRegistry algorithmRegistry,
+                                IndicatorRegistry indicatorRegistry) {
+        this.problemRegistry = problemRegistry;
+        this.algorithmRegistry = algorithmRegistry;
+        this.indicatorRegistry = indicatorRegistry;
     }
 
     @PostMapping
     public ResponseEntity<CreateExperimentResponse> create(@RequestBody CreateExperimentRequest body) {
-        Problem problem = problemRegistryService.getProblem(body.problem());
-        NondominatedPopulation referenceSet = problemRegistryService.getReferenceSet(body.problem());
-        Algorithm algorithm = algorithmRegistryService.getAlgorithm(body.algorithm(), body.algorithmParameters(), problem);
-        Indicators indicators = indicatorRegistryService.getIndicators(body.indicators(), problem, referenceSet);
+        Problem problem = problemRegistry.getProblem(body.problem());
+        NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(body.problem());
+        Algorithm algorithm = algorithmRegistry.getAlgorithm(body.algorithm(), body.algorithmParameters(), problem);
+        Indicators indicators = indicatorRegistry.getIndicators(body.indicators(), problem, referenceSet);
         return ResponseEntity.ok(null);
     }
 
