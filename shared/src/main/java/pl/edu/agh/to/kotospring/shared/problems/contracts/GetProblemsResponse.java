@@ -1,4 +1,7 @@
 package pl.edu.agh.to.kotospring.shared.problems.contracts;
 
-public class GetProblemsResponse {
+public record GetProblemsResponse(
+        String name,
+        boolean requiresParameter
+) {
 }

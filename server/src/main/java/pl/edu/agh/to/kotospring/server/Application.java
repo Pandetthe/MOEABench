@@ -1,7 +1,5 @@
 package pl.edu.agh.to.kotospring.server;
 
-import org.moeaframework.algorithm.NSGAII;
-import org.moeaframework.core.TypedProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

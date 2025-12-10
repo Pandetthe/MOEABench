@@ -1,8 +1,10 @@
 package pl.edu.agh.to.kotospring.shared.experiments.contracts;
 
+import java.util.HashMap;
+import java.util.List;
+
 public record GetExperimentResultResponse(
-        String[] variables,
-        double[] objectives,
-        double[] constraints
+        List<HashMap<String, Object>> result,
+        HashMap<String, Double> indicatorsValues
 ) {
 }

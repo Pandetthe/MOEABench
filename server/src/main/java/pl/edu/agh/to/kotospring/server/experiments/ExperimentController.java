@@ -30,7 +30,7 @@ public class ExperimentController {
     }
 
     @GetMapping("{id:int}/result")
-    public ResponseEntity<GetExperimentResultResponse> getExperimentResult(@PathVariable int id) {
+    public ResponseEntity<List<GetExperimentResultResponse>> getExperimentResult(@PathVariable int id) {
         return null;
     }
 
