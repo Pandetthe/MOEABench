@@ -60,7 +60,7 @@ public final class ProblemRegistryService implements ProblemRegistry {
             throw new IllegalArgumentException("Reference set name must be provided");
         }
         for (RegisteredProblemProvider provider : providers) {
-            NondominatedPopulation referenceSet = instantiateReferenseSet(provider, name);
+            NondominatedPopulation referenceSet = instantiateReferenceSet(provider, name);
             if (referenceSet != null) {
                 return referenceSet;
             }
@@ -68,7 +68,7 @@ public final class ProblemRegistryService implements ProblemRegistry {
         throw new ProviderNotFoundException(name);
     }
 
-    private static NondominatedPopulation instantiateReferenseSet(RegisteredProblemProvider provider, String name) {
+    private static NondominatedPopulation instantiateReferenceSet(RegisteredProblemProvider provider, String name) {
         try {
             return provider.getReferenceSet(name);
         } catch (ServiceConfigurationError ex) {

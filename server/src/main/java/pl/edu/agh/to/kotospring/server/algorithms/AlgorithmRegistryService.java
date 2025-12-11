@@ -2,7 +2,6 @@ package pl.edu.agh.to.kotospring.server.algorithms;
 
 import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.TypedProperties;
-import org.moeaframework.core.spi.AlgorithmFactory;
 import org.moeaframework.core.spi.ProviderNotFoundException;
 import org.moeaframework.core.spi.RegisteredAlgorithmProvider;
 import org.moeaframework.problem.Problem;
