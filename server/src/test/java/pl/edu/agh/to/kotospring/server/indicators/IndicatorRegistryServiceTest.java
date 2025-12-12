@@ -9,6 +9,7 @@ import org.moeaframework.core.objective.Objective;
 import org.moeaframework.core.population.NondominatedPopulation;
 import org.moeaframework.problem.AbstractProblem;
 import org.moeaframework.problem.Problem;
+import pl.edu.agh.to.kotospring.server.services.implementation.IndicatorRegistryServiceImpl;
 
 import java.util.*;
 
@@ -16,14 +17,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IndicatorRegistryServiceTest {
 
-    private IndicatorRegistryService service;
+    private IndicatorRegistryServiceImpl service;
 
     private Problem problem;
     private NondominatedPopulation referenceSet;
 
     @BeforeEach
     void setUp() {
-        service = new IndicatorRegistryService();
+        service = new IndicatorRegistryServiceImpl();
         problem = new DummyProblem(0, 2);
         referenceSet = new NondominatedPopulation();
         Solution s1 = problem.newSolution();

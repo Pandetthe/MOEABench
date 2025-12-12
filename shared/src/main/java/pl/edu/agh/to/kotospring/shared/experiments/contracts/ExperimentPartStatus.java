@@ -1,9 +1,8 @@
 package pl.edu.agh.to.kotospring.shared.experiments.contracts;
 
-public enum ExperimentStatus {
+public enum ExperimentPartStatus {
     QUEUED,
-    IN_PROGRESS,
-    SUCCESS,
-    PARTIAL_SUCCESS,
+    RUNNING,
+    COMPLETED,
     FAILED
 }

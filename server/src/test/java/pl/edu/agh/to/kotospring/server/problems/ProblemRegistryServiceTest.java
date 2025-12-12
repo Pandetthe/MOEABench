@@ -9,6 +9,7 @@ import org.moeaframework.core.spi.RegisteredProblemProvider;
 import org.moeaframework.problem.Problem;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import pl.edu.agh.to.kotospring.server.services.implementation.ProblemRegistryServiceImpl;
 
 import java.util.*;
 
@@ -31,11 +32,11 @@ class ProblemRegistryServiceTest {
     @Mock
     private NondominatedPopulation referenceSet;
 
-    private ProblemRegistryService service;
+    private ProblemRegistryServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new ProblemRegistryService(Arrays.asList(provider1, provider2));
+        service = new ProblemRegistryServiceImpl(Arrays.asList(provider1, provider2));
     }
 
     @Test

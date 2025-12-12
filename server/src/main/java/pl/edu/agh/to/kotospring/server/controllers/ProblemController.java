@@ -1,18 +1,18 @@
-package pl.edu.agh.to.kotospring.server.problems;
+package pl.edu.agh.to.kotospring.server.controllers;
 
-import org.moeaframework.core.spi.ProblemFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import pl.edu.agh.to.kotospring.server.services.implementation.ProblemRegistryServiceImpl;
 
 import java.util.Set;
 
 @RestController
 @RequestMapping(path = "/problems")
 public class ProblemController {
-    private final ProblemRegistryService problemRegistryService;
+    private final ProblemRegistryServiceImpl problemRegistryService;
 
-    public ProblemController(ProblemRegistryService problemRegistryService) {
+    public ProblemController(ProblemRegistryServiceImpl problemRegistryService) {
         this.problemRegistryService = problemRegistryService;
     }
 

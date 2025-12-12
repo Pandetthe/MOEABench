@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.server.algorithms;
+package pl.edu.agh.to.kotospring.server.configuration;
 
 import org.moeaframework.algorithm.DefaultAlgorithms;
 import org.moeaframework.core.spi.RegisteredAlgorithmProvider;

@@ -1,13 +1,11 @@
-package pl.edu.agh.to.kotospring.server.problems;
+package pl.edu.agh.to.kotospring.server.services.implementation;
 
-import org.moeaframework.algorithm.Algorithm;
-import org.moeaframework.core.TypedProperties;
 import org.moeaframework.core.population.NondominatedPopulation;
-import org.moeaframework.core.spi.ProviderNotFoundException;
-import org.moeaframework.core.spi.RegisteredAlgorithmProvider;
 import org.moeaframework.core.spi.RegisteredProblemProvider;
 import org.moeaframework.problem.Problem;
 import org.springframework.stereotype.Service;
+import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.services.interfaces.ProblemRegistryService;
 
 import java.util.List;
 import java.util.ServiceConfigurationError;
@@ -15,10 +13,10 @@ import java.util.Set;
 import java.util.TreeSet;
 
 @Service
-public final class ProblemRegistryService implements ProblemRegistry {
+public final class ProblemRegistryServiceImpl implements ProblemRegistryService {
     private final List<RegisteredProblemProvider> providers;
 
-    public ProblemRegistryService(List<RegisteredProblemProvider> providers) {
+    public ProblemRegistryServiceImpl(List<RegisteredProblemProvider> providers) {
         this.providers = providers;
     }
 
@@ -33,17 +31,14 @@ public final class ProblemRegistryService implements ProblemRegistry {
     }
 
     @Override
-    public Problem getProblem(String name) throws ProviderNotFoundException {
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Problem name must be provided");
-        }
+    public Problem getProblem(String name) throws ProblemNotFoundException {
         for (RegisteredProblemProvider provider : providers) {
             Problem problem = instantiateProblem(provider, name);
             if (problem != null) {
                 return problem;
             }
         }
-        throw new ProviderNotFoundException(name);
+        throw new ProblemNotFoundException(name);
     }
 
     private static Problem instantiateProblem(RegisteredProblemProvider provider, String name) {
@@ -55,17 +50,14 @@ public final class ProblemRegistryService implements ProblemRegistry {
     }
 
     @Override
-    public NondominatedPopulation getReferenceSet(String name) throws ProviderNotFoundException {
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Reference set name must be provided");
-        }
+    public NondominatedPopulation getReferenceSet(String name) throws ProblemNotFoundException {
         for (RegisteredProblemProvider provider : providers) {
             NondominatedPopulation referenceSet = instantiateReferenceSet(provider, name);
             if (referenceSet != null) {
                 return referenceSet;
             }
         }
-        throw new ProviderNotFoundException(name);
+        throw new ProblemNotFoundException(name);
     }
 
     private static NondominatedPopulation instantiateReferenceSet(RegisteredProblemProvider provider, String name) {

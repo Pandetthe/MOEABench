@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.server.problems;
+package pl.edu.agh.to.kotospring.server.configuration;
 
 import org.moeaframework.core.spi.RegisteredProblemProvider;
 import org.moeaframework.problem.CEC2009.CEC2009ProblemProvider;

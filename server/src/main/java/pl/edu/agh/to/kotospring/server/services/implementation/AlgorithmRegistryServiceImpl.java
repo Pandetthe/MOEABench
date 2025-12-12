@@ -1,19 +1,20 @@
-package pl.edu.agh.to.kotospring.server.algorithms;
+package pl.edu.agh.to.kotospring.server.services.implementation;
 
 import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.TypedProperties;
-import org.moeaframework.core.spi.ProviderNotFoundException;
 import org.moeaframework.core.spi.RegisteredAlgorithmProvider;
 import org.moeaframework.problem.Problem;
 import org.springframework.stereotype.Service;
+import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
+import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
 
 import java.util.*;
 
 @Service
-public final class AlgorithmRegistryService implements AlgorithmRegistry {
+public final class AlgorithmRegistryServiceImpl implements AlgorithmRegistryService {
     private final List<RegisteredAlgorithmProvider> providers;
 
-    public AlgorithmRegistryService(List<RegisteredAlgorithmProvider> providers) {
+    public AlgorithmRegistryServiceImpl(List<RegisteredAlgorithmProvider> providers) {
         this.providers = providers;
     }
 
@@ -27,20 +28,18 @@ public final class AlgorithmRegistryService implements AlgorithmRegistry {
     }
 
     @Override
-    public Algorithm getAlgorithm(String name, TypedProperties parameters, Problem problem) {
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("Algorithm name must be provided");
-        }
+    public Algorithm getAlgorithm(String name, TypedProperties parameters, Problem problem) throws AlgorithmNotFoundException {
         for (RegisteredAlgorithmProvider provider : providers) {
             Algorithm algorithm = instantiateAlgorithm(provider, name, parameters, problem);
             if (algorithm != null) {
                 return algorithm;
             }
         }
-        throw new ProviderNotFoundException("Algorithm not found: " + name);
+        throw new AlgorithmNotFoundException(name);
     }
 
-    private static Algorithm instantiateAlgorithm(RegisteredAlgorithmProvider provider, String name, TypedProperties parameters, Problem problem) {
+    private static Algorithm instantiateAlgorithm(RegisteredAlgorithmProvider provider,
+                                                  String name, TypedProperties parameters, Problem problem) {
         try {
             return provider.getAlgorithm(name, parameters, problem);
         } catch (ServiceConfigurationError ex) {
@@ -49,8 +48,9 @@ public final class AlgorithmRegistryService implements AlgorithmRegistry {
     }
 
     @Override
-    public Algorithm getAlgorithm(String name, Properties parameters, Problem problem) {
-        TypedProperties typedProperties = new TypedProperties(parameters);
-        return getAlgorithm(name, typedProperties, problem);
+    public TypedProperties createTypedProperties(Map<String, Object> parameters) {
+        Properties properties = new Properties(parameters.size());
+        properties.putAll(parameters);
+        return new TypedProperties(properties);
     }
 }

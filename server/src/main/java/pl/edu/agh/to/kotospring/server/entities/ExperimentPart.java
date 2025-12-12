@@ -1,13 +1,15 @@
-package pl.edu.agh.to.kotospring.server.experiments;
+package pl.edu.agh.to.kotospring.server.entities;
 
 import jakarta.persistence.*;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.ExperimentStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.ExperimentPartStatus;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Entity
-public class ExperimentItemEntity {
+public class ExperimentPart {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -15,10 +17,10 @@ public class ExperimentItemEntity {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "experiment_id", nullable = false)
-    private ExperimentEntity experiment;
+    private Experiment experiment;
 
-    @OneToMany(mappedBy = "experimentItem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExperimentItemAlgorithmParameterEntity> parameters;
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
+    private final List<ExperimentPartAlgorithmParameter> parameters;
 
     @Column(nullable = false, length = 255)
     private String problem;
@@ -28,18 +30,18 @@ public class ExperimentItemEntity {
 
     @ElementCollection
     @CollectionTable(
-            name = "experiment_item_indicators",
-            joinColumns = @JoinColumn(name = "experiment_item_id")
+            name = "experiment_part_indicators",
+            joinColumns = @JoinColumn(name = "experiment_part_id")
     )
     @Column(name = "indicator")
-    private List<String> indicators;
+    private Set<String> indicators;
 
     @Column(nullable = false)
     private int budget;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ExperimentStatus status;
+    private ExperimentPartStatus status;
 
     @Column(name = "error_message", length = 2048)
     private String errorMessage;
@@ -50,16 +52,30 @@ public class ExperimentItemEntity {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    public ExperimentItemEntity() {}
+    public ExperimentPart() {
+        parameters = new ArrayList<>();
+    }
+
+    public ExperimentPart(String problem, String algorithm,
+                          List<ExperimentPartAlgorithmParameter> parameters,
+                          Set<String> indicators, int budget) {
+        this.status = ExperimentPartStatus.QUEUED;
+        this.problem = problem;
+        this.algorithm = algorithm;
+        this.parameters = parameters;
+        this.indicators = indicators;
+        this.budget = budget;
+    }
+
     public Long getId() {
         return id;
     }
 
-    public ExperimentEntity getExperiment() {
+    public Experiment getExperiment() {
         return experiment;
     }
 
-    public void setExperiment(ExperimentEntity experiment) {
+    public void setExperiment(Experiment experiment) {
         this.experiment = experiment;
     }
 
@@ -79,11 +95,11 @@ public class ExperimentItemEntity {
         this.algorithm = algorithm;
     }
 
-    public List<String> getIndicators() {
+    public Set<String> getIndicators() {
         return indicators;
     }
 
-    public void setIndicators(List<String> indicators) {
+    public void setIndicators(Set<String> indicators) {
         this.indicators = indicators;
     }
 
@@ -95,11 +111,11 @@ public class ExperimentItemEntity {
         this.budget = budget;
     }
 
-    public ExperimentStatus getStatus() {
+    public ExperimentPartStatus getStatus() {
         return status;
     }
 
-    public void setStatus(ExperimentStatus status) {
+    public void setStatus(ExperimentPartStatus status) {
         this.status = status;
     }
 
@@ -126,10 +142,7 @@ public class ExperimentItemEntity {
     public void setFinishedAt(OffsetDateTime finishedAt) {
         this.finishedAt = finishedAt;
     }
-    public List<ExperimentItemAlgorithmParameterEntity> getParameters() {
+    public List<ExperimentPartAlgorithmParameter> getParameters() {
         return parameters;
-    }
-    public void setParameters(List<ExperimentItemAlgorithmParameterEntity> parameters) {
-        this.parameters = parameters;
     }
 }

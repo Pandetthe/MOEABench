@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import pl.edu.agh.to.kotospring.server.services.implementation.AlgorithmRegistryServiceImpl;
 
 import java.util.*;
 
@@ -33,14 +34,14 @@ class AlgorithmRegistryServiceTest {
     @Mock
     private Problem problem;
 
-    private AlgorithmRegistryService service;
+    private AlgorithmRegistryServiceImpl service;
 
     @Captor
     private ArgumentCaptor<TypedProperties> typedPropertiesCaptor;
 
     @BeforeEach
     void setUp() {
-        service = new AlgorithmRegistryService(Arrays.asList(provider1, provider2));
+        service = new AlgorithmRegistryServiceImpl(Arrays.asList(provider1, provider2));
     }
 
     @Test

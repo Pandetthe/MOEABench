@@ -1,13 +1,14 @@
-package pl.edu.agh.to.kotospring.server.experiments;
+package pl.edu.agh.to.kotospring.server.entities;
 
 import jakarta.persistence.*;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.ExperimentStatus;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-public class ExperimentEntity {
+public class Experiment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,10 +27,19 @@ public class ExperimentEntity {
     private OffsetDateTime finishedAt;
 
     @OneToMany(mappedBy = "experiment", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExperimentItemEntity> items;
+    private final List<ExperimentPart> parts;
 
+    public Experiment(OffsetDateTime queuedAt,
+                      List<ExperimentPart> parts) {
+        this.status = ExperimentStatus.QUEUED;
+        this.queuedAt = queuedAt;
+        this.parts = parts;
+    }
 
-    public ExperimentEntity() {};
+    public Experiment() {
+        parts = new ArrayList<>();
+    };
+
     public void setStatus(ExperimentStatus status) {
         this.status = status;
     }
@@ -37,7 +47,6 @@ public class ExperimentEntity {
     public ExperimentStatus getStatus() {
         return this.status;
     }
-
 
     public Long getId() {
         return id;
@@ -61,12 +70,7 @@ public class ExperimentEntity {
     public OffsetDateTime getFinishedAt() {
         return finishedAt;
     }
-    public List<ExperimentItemEntity> getItems() {
-        return items;
+    public List<ExperimentPart> getParts() {
+        return parts;
     }
-
-    public void setItems(List<ExperimentItemEntity> items) {
-        this.items = items;
-    }
-
 }
