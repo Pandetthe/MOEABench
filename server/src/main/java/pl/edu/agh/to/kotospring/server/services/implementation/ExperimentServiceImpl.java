@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
@@ -93,9 +94,13 @@ public class ExperimentServiceImpl implements ExperimentService {
                 problemName,
                 algorithmName,
                 algorithmParameterEntities,
-                indicators,
                 budget
         );
+        for (String indicatorName : partRequest.indicators()) {
+            ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, 0.0);
+            indicator.setExperimentPart(experimentPart);
+            experimentPart.getIndicators().add(indicator);
+        }
         QueueData queueData = new QueueData(experimentPart.getId(), algorithm, indicatorsObj, budget);
         return Pair.of(experimentPart, queueData);
     }

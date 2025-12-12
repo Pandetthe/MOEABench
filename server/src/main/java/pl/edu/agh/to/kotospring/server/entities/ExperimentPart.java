@@ -28,13 +28,8 @@ public class ExperimentPart {
     @Column(nullable = false, length = 255)
     private String algorithm;
 
-    @ElementCollection
-    @CollectionTable(
-            name = "experiment_part_indicators",
-            joinColumns = @JoinColumn(name = "experiment_part_id")
-    )
-    @Column(name = "indicator")
-    private Set<String> indicators;
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ExperimentPartIndicator> indicators = new ArrayList<>();
 
     @Column(nullable = false)
     private int budget;
@@ -52,18 +47,19 @@ public class ExperimentPart {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
+    @Transient
+    List<ExperimentPartSolution> solutions;
+
     public ExperimentPart() {
         parameters = new ArrayList<>();
     }
 
     public ExperimentPart(String problem, String algorithm,
-                          List<ExperimentPartAlgorithmParameter> parameters,
-                          Set<String> indicators, int budget) {
+                          List<ExperimentPartAlgorithmParameter> parameters, int budget) {
         this.status = ExperimentPartStatus.QUEUED;
         this.problem = problem;
         this.algorithm = algorithm;
         this.parameters = parameters;
-        this.indicators = indicators;
         this.budget = budget;
     }
 
@@ -95,11 +91,11 @@ public class ExperimentPart {
         this.algorithm = algorithm;
     }
 
-    public Set<String> getIndicators() {
+    public List<ExperimentPartIndicator> getIndicators() {
         return indicators;
     }
 
-    public void setIndicators(Set<String> indicators) {
+    public void setIndicators(List<ExperimentPartIndicator> indicators) {
         this.indicators = indicators;
     }
 
