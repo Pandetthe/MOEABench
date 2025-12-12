@@ -25,42 +25,42 @@ public final class ExperimentController {
         return ResponseEntity.ok(experimentService.getExperiments());
     }
 
-    @GetMapping("{id:long}")
+    @GetMapping("{id}")
     public ResponseEntity<?> getExperiment(@PathVariable long id) {
         return experimentService.getExperiment(id)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
-    @GetMapping("{id:long}/status/")
+    @GetMapping("{id}/status/")
     public ResponseEntity<?> getExperimentStatus(@PathVariable long id) {
         return experimentService.getExperimentStatus(id)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
-    @GetMapping("{id:long}/status/{partId:long}")
+    @GetMapping("{id}/status/{partId}")
     public ResponseEntity<?> getExperimentStatus(@PathVariable long id, @PathVariable long partId) {
         return experimentService.getExperimentStatus(id, partId)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 
-    @GetMapping("{id:long}/result")
+    @GetMapping("{id}/result")
     public ResponseEntity<?> getExperimentResult(@PathVariable long id) {
         return experimentService.getExperimentResult(id)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
-    @GetMapping("{id:long}/result/{partId:long}")
+    @GetMapping("{id}/result/{partId}")
     public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long partId) {
         return experimentService.getExperimentResult(id, partId)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 
-    @DeleteMapping("{id:long}")
+    @DeleteMapping("{id}")
     public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
         if (experimentService.deleteExperiment(id))
             return ResponseEntity.noContent().build();

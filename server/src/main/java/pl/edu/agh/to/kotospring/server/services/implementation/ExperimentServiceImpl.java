@@ -4,6 +4,8 @@ import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.population.NondominatedPopulation;
 import org.moeaframework.problem.Problem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
+    private final Logger logger = LoggerFactory.getLogger(ExperimentServiceImpl.class);
+
     private final ProblemRegistryService problemRegistry;
     private final AlgorithmRegistryService algorithmRegistry;
     private final IndicatorRegistryService indicatorRegistry;
@@ -140,6 +144,10 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     public boolean deleteExperiment(long id) {
+        if(experimentRepository.existsById(id)){
+            experimentRepository.deleteById(id);
+            return true;
+        }
         return false;
     }
 }
