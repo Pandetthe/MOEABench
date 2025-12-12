@@ -20,6 +20,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
@@ -64,7 +65,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         return new CreateExperimentResponse(experiment.getId());
     }
 
-    private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentPartRequest partRequest) {
+    private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentRequestData partRequest) {
         String problemName = partRequest.problem();
         String algorithmName = partRequest.algorithm();
         var algorithmParameters = algorithmRegistry.createTypedProperties(partRequest.algorithmParameters());
@@ -97,7 +98,19 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     public GetExperimentsResponse getExperiments() {
-        return null;
+        return experimentRepository.findAll()
+                .stream()
+                .map(experiment -> new GetExperimentsResponseData(
+                        experiment.getId(),
+                        experiment.getStatus(),
+                        experiment.getQueuedAt(),
+                        experiment.getStartedAt(),
+                        experiment.getFinishedAt()
+                ))
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        GetExperimentsResponse::new
+                ));
     }
 
     @Override

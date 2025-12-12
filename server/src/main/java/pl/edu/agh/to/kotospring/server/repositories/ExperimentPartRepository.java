@@ -1,4 +1,9 @@
 package pl.edu.agh.to.kotospring.server.repositories;
 
-public class ExperimentPartRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
+
+@Repository
+public interface ExperimentPartRepository extends JpaRepository<ExperimentPart, Long> {
 }

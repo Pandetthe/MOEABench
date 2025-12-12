@@ -3,7 +3,7 @@ package pl.edu.agh.to.kotospring.shared.experiments.contracts;
 import java.util.Map;
 import java.util.Set;
 
-public record CreateExperimentPartRequest(
+public record CreateExperimentRequestData(
         String problem,
         String algorithm,
         Map<String, Object> algorithmParameters,

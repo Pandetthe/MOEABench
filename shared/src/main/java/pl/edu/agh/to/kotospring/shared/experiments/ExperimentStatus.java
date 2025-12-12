@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.shared.experiments.contracts;
+package pl.edu.agh.to.kotospring.shared.experiments;
 
 public enum ExperimentStatus {
     QUEUED,

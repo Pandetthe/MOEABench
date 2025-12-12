@@ -1,7 +1,7 @@
 package pl.edu.agh.to.kotospring.server.entities;
 
 import jakarta.persistence.*;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.ExperimentStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;

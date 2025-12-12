@@ -1,7 +1,7 @@
 package pl.edu.agh.to.kotospring.server.entities;
 
 import jakarta.persistence.*;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -142,6 +142,7 @@ public class ExperimentPart {
     public void setFinishedAt(OffsetDateTime finishedAt) {
         this.finishedAt = finishedAt;
     }
+
     public List<ExperimentPartAlgorithmParameter> getParameters() {
         return parameters;
     }
