@@ -119,7 +119,13 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     public Optional<GetExperimentResponse> getExperiment(long id) {
-        return Optional.empty();
+        return experimentRepository.findById(id)
+                .map(experiment -> new GetExperimentResponse(
+                        experiment.getStatus(),
+                        experiment.getQueuedAt(),
+                        experiment.getStartedAt(),
+                        experiment.getFinishedAt()
+                ));
     }
 
     @Override

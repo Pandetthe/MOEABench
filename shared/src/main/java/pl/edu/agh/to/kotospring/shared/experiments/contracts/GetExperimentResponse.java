@@ -7,9 +7,9 @@ import java.util.HashSet;
 import java.util.Properties;
 
 public record GetExperimentResponse(
+        ExperimentStatus status,
         OffsetDateTime queuedAt,
         OffsetDateTime startedAt,
-        OffsetDateTime finishedAt,
-        ExperimentStatus status
+        OffsetDateTime finishedAt
 ) {
 }
