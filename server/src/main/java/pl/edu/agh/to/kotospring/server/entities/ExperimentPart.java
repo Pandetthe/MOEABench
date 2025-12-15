@@ -47,8 +47,18 @@ public class ExperimentPart {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    @Transient
-    List<ExperimentPartSolution> solutions;
+    @OneToMany(
+            mappedBy = "experimentPart",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<ExperimentPartSolutionEntity> solutionEntities = new ArrayList<>();
+
+    public List<ExperimentPartSolutionEntity> getSolutionEntities() {
+        return solutionEntities;
+    }
+
+
 
     public ExperimentPart() {
         parameters = new ArrayList<>();
