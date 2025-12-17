@@ -10,7 +10,7 @@ public interface ExperimentService {
     Optional<GetExperimentResponse> getExperiment(long id);
     Optional<GetExperimentStatusResponse> getExperimentStatus(long id);
     Optional<GetExperimentPartStatusResponse> getExperimentStatus(long id, long partId);
-    Optional<GetExperimentResultResponse> getExperimentResult(long id);
+    Optional<GetExperimentResultResponseData> getExperimentResult(long id);
     Optional<GetExperimentPartResultResponse> getExperimentResult(long id, long partId);
     boolean deleteExperiment(long id);
 }

@@ -14,11 +14,13 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ProblemRegistryService;
+import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
@@ -34,16 +36,18 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final AlgorithmRegistryService algorithmRegistry;
     private final IndicatorRegistryService indicatorRegistry;
     private final ExperimentRepository experimentRepository;
+    private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentExecutionService executionService;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
                                  AlgorithmRegistryService algorithmRegistry,
                                  IndicatorRegistryService indicatorRegistry,
-                                 ExperimentRepository experimentRepository, ExperimentExecutionService executionService) {
+                                 ExperimentRepository experimentRepository, ExperimentPartRepository experimentPartRepository, ExperimentExecutionService executionService) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
         this.experimentRepository = experimentRepository;
+        this.experimentPartRepository = experimentPartRepository;
         this.executionService = executionService;
     }
 
@@ -68,10 +72,8 @@ public class ExperimentServiceImpl implements ExperimentService {
         }
         experimentRepository.save(experiment);
 
-        // TODO: Queue experiment parts
-
         for (int i = 0; i < experimentPartList.size(); i++) {
-            logger.info("in loop");
+            logger.info("experiment part size: {}", experimentPartList.size());
             ExperimentPart savedPart = experimentPartList.get(i);
             QueueData originalQueueData = queueDataList.get(i);
 
@@ -85,6 +87,7 @@ public class ExperimentServiceImpl implements ExperimentService {
             logger.info("algo = {}", readyToRunData.getAlgorithm());
 
             executionService.runExperimentPart(readyToRunData);
+            logger.info("after runExperimentPart");
             if (i == 0) {
                 experiment.setStartedAt(OffsetDateTime.now());
                 experiment.setStatus(ExperimentStatus.IN_PROGRESS);
@@ -95,7 +98,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         experiment.setStatus(ExperimentStatus.SUCCESS);
         experimentRepository.save(experiment);
 
-
+        logger.info("Created experiment with id {}", experiment.getId());
         return new CreateExperimentResponse(experiment.getId());
     }
 
@@ -172,17 +175,64 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     public Optional<GetExperimentPartStatusResponse> getExperimentStatus(long id, long partId) {
-        return Optional.empty();
+        return experimentPartRepository.findById(partId)
+                .filter(part -> part.getExperiment().getId().equals(id))
+                .map(part -> new GetExperimentPartStatusResponse(
+                        part.getStatus(),
+                        part.getErrorMessage()
+                ));
     }
 
     @Override
-    public Optional<GetExperimentResultResponse> getExperimentResult(long id) {
-        return Optional.empty();
+    public Optional<GetExperimentResultResponseData> getExperimentResult(long id) {
+        return experimentRepository.findById(id)
+                .map(experiment -> {
+                    List<AlgorithmResult> allResults = experiment.getParts().stream()
+                            .flatMap(part -> part.getSolutionEntities().stream())
+                            .map(solution -> new AlgorithmResult(
+                                    solution.getVariables(),
+                                    solution.getObjectives(),
+                                    solution.getConstraints()
+                            ))
+                            .collect(Collectors.toList());
+
+                    Map<String, Double> aggregatedIndicators = experiment.getParts().stream()
+                            .flatMap(part -> part.getIndicators().stream())
+                            .collect(Collectors.groupingBy(
+                                    ExperimentPartIndicator::getName,
+                                    Collectors.averagingDouble(ExperimentPartIndicator::getValue)
+                            ));
+
+                    return new GetExperimentResultResponseData(
+                            experiment.getId(),
+                            allResults,
+                            aggregatedIndicators
+                    );
+                });
+
     }
 
     @Override
     public Optional<GetExperimentPartResultResponse> getExperimentResult(long id, long partId) {
-        return Optional.empty();
+        return experimentPartRepository.findById(partId)
+                .filter(part -> part.getExperiment().getId().equals(id))
+                .map(part -> {
+                    List<AlgorithmResult> results = part.getSolutionEntities().stream()
+                            .map(solution -> new AlgorithmResult(
+                                    solution.getVariables(),
+                                    solution.getObjectives(),
+                                    solution.getConstraints()
+                            ))
+                            .collect(Collectors.toList());
+
+                    Map<String, Double> indicatorsValues = part.getIndicators().stream()
+                            .collect(Collectors.toMap(
+                                    ExperimentPartIndicator::getName,
+                                    ExperimentPartIndicator::getValue
+                            ));
+
+                    return new GetExperimentPartResultResponse(results, indicatorsValues);
+                });
     }
 
     @Override
