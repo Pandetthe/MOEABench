@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class AlgorithmProvidersConfiguration {
-
     @Bean
     public RegisteredAlgorithmProvider getDefaultAlgorithms() {
         return new DefaultAlgorithms();

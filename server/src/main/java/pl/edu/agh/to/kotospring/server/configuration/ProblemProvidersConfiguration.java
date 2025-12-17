@@ -16,7 +16,6 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ProblemProvidersConfiguration {
-
     @Bean
     public RegisteredProblemProvider getLZProblemProvider() {
         return new LZProblemProvider();

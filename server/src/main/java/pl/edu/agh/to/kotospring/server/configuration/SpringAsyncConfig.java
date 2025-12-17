@@ -10,7 +10,6 @@ import java.util.concurrent.Executor;
 @Configuration
 @EnableAsync
 public class SpringAsyncConfig {
-
     @Bean(name = "experimentExecutor")
     public Executor threadPoolTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
