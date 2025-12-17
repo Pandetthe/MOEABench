@@ -37,7 +37,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
-    private ExperimentExecutionServiceImpl self;
+    private final ExperimentExecutionServiceImpl self;
     private final ExperimentRepository experimentRepository;
 
     public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
@@ -54,7 +54,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
     @Async("experimentExecutor")
     public void partStatusManager(QueueData queueData) {
-        Long partId = queueData.experimentPartId();
+        Long partId = queueData.getExperimentPartId();
         logger.info("Starting execution of ExperimentPart ID: {}", partId);
         Long experimentId = experimentPartRepository.findById(partId)
                 .map(part -> part.getExperiment().getId())
@@ -148,18 +148,18 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
     @Transactional
     public void runExperimentPart(QueueData queueData) {
-        Long partId = queueData.experimentPartId();
+        Long partId = queueData.getExperimentPartId();
         ExperimentPart part = experimentPartRepository
                 .findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
         part.setStartedAt(OffsetDateTime.now());
         part.setStatus(ExperimentPartStatus.RUNNING);
         experimentPartRepository.save(part);
-        Algorithm algorithm = queueData.algorithm();
-        int budget = queueData.budget();
+        Algorithm algorithm = queueData.getAlgorithm();
+        int budget = queueData.getBudget();
         algorithm.run(budget);
         NondominatedPopulation result = algorithm.getResult();
-        Indicators moeaIndicators = queueData.indicators();
+        Indicators moeaIndicators = queueData.getIndicators();
         Indicators.IndicatorValues indires = moeaIndicators.apply(result);
 
         EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
@@ -214,5 +214,4 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         }
         experimentPartSolutionRepository.saveAll(solutionEntities);
     }
-
 }

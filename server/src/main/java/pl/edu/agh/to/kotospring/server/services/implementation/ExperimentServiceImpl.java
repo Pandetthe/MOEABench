@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
@@ -24,7 +23,6 @@ import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryServ
 import pl.edu.agh.to.kotospring.server.services.interfaces.ProblemRegistryService;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
@@ -57,6 +55,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional
     public CreateExperimentResponse createExperiment(CreateExperimentRequest request) {
+        logger.debug("Creating new experiment; partsCount={}", request.size());
         List<Pair<ExperimentPart, QueueData>> experimentParts = request.stream()
                 .map(this::createExperimentPart)
                 .toList();
@@ -68,38 +67,16 @@ public class ExperimentServiceImpl implements ExperimentService {
         List<QueueData> queueDataList = experimentParts.stream()
                 .map(Pair::getSecond)
                 .toList();
-
         Experiment experiment = new Experiment(OffsetDateTime.now(), experimentPartList);
-        for (ExperimentPart part : experimentPartList) {
-            part.setExperiment(experiment);
-        }
-
-        experiment.setStatus(ExperimentStatus.IN_PROGRESS);
-        experiment.setStartedAt(OffsetDateTime.now());
-        experimentRepository.save(experiment);
-        logger.info("Created experiment with ID: {}", experiment.getId());
-
+        experimentRepository.saveAndFlush(experiment);
 
         for (int i = 0; i < experimentPartList.size(); i++) {
-            logger.info("experiment part size: {}", experimentPartList.size());
             ExperimentPart savedPart = experimentPartList.get(i);
-            logger.info("ExperimentPart {} has ID: {}", i, savedPart.getId());
-
-            QueueData originalQueueData = queueDataList.get(i);
-
-            QueueData readyToRunData = new QueueData(
-                    savedPart.getId(),
-                    originalQueueData.algorithm(),
-                    originalQueueData.indicators(),
-                    originalQueueData.budget()
-            );
-
-
-            executionService.partStatusManager(readyToRunData);
-            logger.info("after runExperimentPart");
-
+            QueueData queueData = queueDataList.get(i);
+            queueData.setExperimentPartId(savedPart.getId());
+            executionService.partStatusManager(queueData);
         }
-        logger.info("Created experiment with id {}", experiment.getId());
+        logger.info("Successfully created and queued new experiment id={}", experiment.getId());
         return new CreateExperimentResponse(experiment.getId());
     }
 
@@ -134,7 +111,7 @@ public class ExperimentServiceImpl implements ExperimentService {
             indicator.setExperimentPart(experimentPart);
             experimentPart.getIndicators().add(indicator);
         }
-        QueueData queueData = new QueueData(experimentPart.getId(), algorithm, indicatorsObj, budget);
+        QueueData queueData = new QueueData(algorithm, indicatorsObj, budget);
         return Pair.of(experimentPart, queueData);
     }
 
