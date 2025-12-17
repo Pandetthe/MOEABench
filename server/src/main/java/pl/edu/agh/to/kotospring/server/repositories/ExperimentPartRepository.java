@@ -19,4 +19,10 @@ public interface ExperimentPartRepository extends JpaRepository<ExperimentPart, 
         where p.id = :id and p.experiment.id = :experimentId
         """)
     Optional<ExperimentPart> findWithFullSolutionById(Long experimentId, Long id);
+
+    @Query("""
+        select distinct p from ExperimentPart p
+        where p.id = :id and p.experiment.id = :experimentId
+        """)
+    Optional<ExperimentPart> findByExperimentIdAndId(Long experimentId, Long id);
 }

@@ -157,7 +157,6 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                 variablesMap.put(Variable.getNameOrDefault(variable, i), variable.encode());
             }
 
-
             for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
                 Objective objective = solution.getObjective(i);
                 objectivesMap.put(Objective.getNameOrDefault(objective, i), objective.getValue());
