@@ -37,7 +37,7 @@ public class ExperimentPartAlgorithmParameter {
         this.experimentPart = experimentPart;
     }
 
-    public Object getKey() {
+    public String getKey() {
         return key;
     }
 

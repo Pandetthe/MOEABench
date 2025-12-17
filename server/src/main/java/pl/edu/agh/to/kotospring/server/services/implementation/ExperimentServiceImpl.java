@@ -205,7 +205,23 @@ public class ExperimentServiceImpl implements ExperimentService {
                         experiment.getStatus(),
                         experiment.getQueuedAt(),
                         experiment.getStartedAt(),
-                        experiment.getFinishedAt()
+                        experiment.getFinishedAt(),
+                        experiment.getParts().stream().map(part -> new GetExperimentResponseData(
+                                part.getId(),
+                                part.getStatus(),
+                                part.getErrorMessage(),
+                                part.getProblem(),
+                                part.getAlgorithm(),
+                                part.getBudget(),
+                                part.getParameters().stream().collect(Collectors.toMap(
+                                        ExperimentPartAlgorithmParameter::getKey,
+                                        ExperimentPartAlgorithmParameter::getValue,
+                                        (existing, replacement) -> replacement,
+                                        HashMap::new)),
+                                new HashSet<>(part.getIndicators().stream().map(ExperimentPartIndicator::getName).toList()),
+                                part.getStartedAt(),
+                                part.getFinishedAt()
+                        )).toList()
                 ));
     }
 
