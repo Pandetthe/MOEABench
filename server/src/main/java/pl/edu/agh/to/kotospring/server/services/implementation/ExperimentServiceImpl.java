@@ -88,9 +88,9 @@ public class ExperimentServiceImpl implements ExperimentService {
 
             QueueData readyToRunData = new QueueData(
                     savedPart.getId(),
-                    originalQueueData.getAlgorithm(),
-                    originalQueueData.getIndicators(),
-                    originalQueueData.getBudget()
+                    originalQueueData.algorithm(),
+                    originalQueueData.indicators(),
+                    originalQueueData.budget()
             );
 
 

@@ -52,7 +52,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
     @Async("threadPoolTaskExecutor")
     public void partStatusManager(QueueData queueData) {
-        Long partId = queueData.getExperimentPartId();
+        Long partId = queueData.experimentPartId();
         logger.info("Starting execution of ExperimentPart ID: {}", partId);
         Long experimentId = experimentPartRepository.findById(partId)
                 .map(part -> part.getExperiment().getId())
@@ -106,7 +106,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
     @Transactional
     public void runExperimentPart(QueueData queueData) {
-        Long partId = queueData.getExperimentPartId();
+        Long partId = queueData.experimentPartId();
 
         ExperimentPart part = experimentPartRepository.findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
@@ -130,14 +130,14 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 //
 //            Samples samples = parameters.enumerate();
 
-            var algorithm = queueData.getAlgorithm();
-            int maxEvaluations = queueData.getBudget();
+            var algorithm = queueData.algorithm();
+            int maxEvaluations = queueData.budget();
 
             algorithm.run(maxEvaluations);
             NondominatedPopulation result = algorithm.getResult();
             result.display();
             logger.info("result: {}", result);
-            Indicators moeaIndicators = queueData.getIndicators();
+            Indicators moeaIndicators = queueData.indicators();
             Indicators.IndicatorValues indires = moeaIndicators.apply(result);
             logger.info("indi: {}", moeaIndicators);
             List<ExperimentPartIndicator> indicatorsList = new ArrayList<>();
