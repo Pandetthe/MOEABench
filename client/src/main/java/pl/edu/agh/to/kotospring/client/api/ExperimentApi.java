@@ -22,10 +22,17 @@ public class ExperimentApi {
 
     public GetExperimentStatusResponse getExperimentStatus(long id) {
         return restClient.get()
-                .uri("/experiments/{id}/status", id)
+                .uri("/experiments/{id}/status/", id)
                 .retrieve()
                 .body(GetExperimentStatusResponse.class);
     }
+    public GetExperimentPartStatusResponse getExperimentPartStatus(long id, long partId) {
+        return restClient.get()
+                .uri("/experiments/{id}/status/{partId}", id, partId)
+                .retrieve()
+                .body(GetExperimentPartStatusResponse.class);
+    }
+
 
     public GetExperimentResponse getExperiment(long id) {
         return restClient.get()
@@ -39,6 +46,12 @@ public class ExperimentApi {
                 .uri("/experiments/{id}/result", id)
                 .retrieve()
                 .body(GetExperimentResultResponse.class);
+    }
+    public GetExperimentPartResultResponse getExperimentPartResult(long id, long partId) {
+        return restClient.get()
+                .uri("/experiments/{id}/result/{partId}", id, partId)
+                .retrieve()
+                .body(GetExperimentPartResultResponse.class);
     }
 
     public CreateExperimentResponse createExperiment(CreateExperimentRequest request) {

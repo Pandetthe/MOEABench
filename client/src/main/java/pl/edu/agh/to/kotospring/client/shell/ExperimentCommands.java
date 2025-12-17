@@ -63,6 +63,13 @@ public class ExperimentCommands {
     public Object experimentStatus(@ShellOption long id) {
         return experimentApi.getExperimentStatus(id);
     }
+    @ShellMethod(value = "Show experiment part status", key = "experiment-part-status")
+    public Object experimentPartStatus(
+            @ShellOption long id,
+            @ShellOption long part
+    ) {
+        return experimentApi.getExperimentPartStatus(id, part);
+    }
 
     @ShellMethod(value = "Show full experiment", key = "experiment-show")
     public Object experimentShow(@ShellOption long id) {
@@ -72,6 +79,13 @@ public class ExperimentCommands {
     @ShellMethod(value = "Show experiment results", key = "experiment-results")
     public Object experimentResults(@ShellOption long id) {
         return experimentApi.getExperimentResult(id);
+    }
+    @ShellMethod(value = "Show experiment part results", key = "experiment-part-results")
+    public Object experimentPartResults(
+            @ShellOption long id,
+            @ShellOption long part
+    ) {
+        return experimentApi.getExperimentPartResult(id, part);
     }
 
     @ShellMethod(value = "Watch experiment status", key = "experiment-watch")
