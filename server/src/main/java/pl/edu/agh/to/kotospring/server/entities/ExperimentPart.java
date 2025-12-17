@@ -6,7 +6,6 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @Entity
 public class ExperimentPart {
@@ -52,12 +51,12 @@ public class ExperimentPart {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
-    private List<ExperimentPartSolutionEntity> solutionEntities = new ArrayList<>();
+    private List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
 
-    public List<ExperimentPartSolutionEntity> getSolutionEntities() {
+    public List<ExperimentPartSolution> getSolutionEntities() {
         return solutionEntities;
     }
-    public void setSolutionEntities(List<ExperimentPartSolutionEntity> solutionEntities) {
+    public void setSolutionEntities(List<ExperimentPartSolution> solutionEntities) {
         this.solutionEntities = solutionEntities;
     }
 

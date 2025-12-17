@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolutionEntity;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolution;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartIndicatorRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
@@ -182,7 +182,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             });
 
 
-            List<ExperimentPartSolutionEntity> solutionEntities = new ArrayList<>();
+            List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
 
             for (Solution solution: result) {
 
@@ -205,7 +205,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                     String key = "const_" + i;
                     constraintsMap.put(key, solution.getConstraintValue(i));
                 }
-                ExperimentPartSolutionEntity solutionEntity = new ExperimentPartSolutionEntity(part, variablesMap, objectivesMap, constraintsMap);
+                ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
                 solutionEntities.add(solutionEntity);
             }
 
