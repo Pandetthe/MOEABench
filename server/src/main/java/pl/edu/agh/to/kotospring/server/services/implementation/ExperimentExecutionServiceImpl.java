@@ -17,7 +17,7 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolution;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartIndicatorRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartSolutionEntityRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartSolutionRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
@@ -29,26 +29,21 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionServiceImpl.class);
     private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
-    private final ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository;
+    private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
     private ExperimentExecutionServiceImpl self;
     private ExperimentServiceImpl experimentService;
 
     public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
                                           ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
-                                          ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository,
+                                          ExperimentPartSolutionRepository experimentPartSolutionRepository,
                                           @Lazy ExperimentExecutionServiceImpl self,
                                           @Lazy ExperimentServiceImpl experimentService) {
         this.experimentPartRepository = experimentPartRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
-        this.experimentPartSolutionEntityRepository = experimentPartSolutionEntityRepository;
+        this.experimentPartSolutionRepository = experimentPartSolutionRepository;
         this.self = self;
         this.experimentService = experimentService;
     }
-
-
-//    public void setSelf(ExperimentExecutionService self) {
-//        this.self = self;
-//    }
 
     @Async("threadPoolTaskExecutor")
     public void partStatusManager(QueueData queueData) {
@@ -114,142 +109,76 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         part.setStartedAt(OffsetDateTime.now());
         part.setStatus(ExperimentPartStatus.RUNNING);
         experimentPartRepository.save(part);
+        var algorithm = queueData.algorithm();
+        int maxEvaluations = queueData.budget();
+
+        algorithm.run(maxEvaluations);
+        NondominatedPopulation result = algorithm.getResult();
+        result.display();
+        logger.info("result: {}", result);
+        Indicators moeaIndicators = queueData.indicators();
+        Indicators.IndicatorValues indires = moeaIndicators.apply(result);
+        logger.info("indi: {}", moeaIndicators);
+        List<ExperimentPartIndicator> indicatorsList = new ArrayList<>();
+
+        logger.info("test: {}", result.size());
+
+        EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
+        List<ExperimentPartIndicator> existingIndicators = part.getIndicators();
+        indicators.forEach(indicator -> {
+            String name = indicator.name();
+            double value = indires.get(indicator);
+
+            logger.info("Updating Indicator {}: {}", name, value);
+
+            existingIndicators.stream()
+                    .filter(existing -> existing.getName().equalsIgnoreCase(name))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            existingInd -> {
+                                existingInd.setValue(value);
+
+                                experimentPartIndicatorRepository.save(existingInd);
+                            },
+                            () -> {
+                                ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
+                                newInd.setExperimentPart(part);
+                                existingIndicators.add(newInd);
+                                experimentPartIndicatorRepository.save(newInd);
+                            }
+                    );
+        });
 
 
+        List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
 
+        for (Solution solution: result) {
 
-//            Enumeration<Integer> populationSize = Parameter.named("populationSize")
-//                    .asInt()
-//                    .range(10, 100, 10);
-//
-//            Enumeration<Long> seed = org.moeaframework.analysis.parameter.Parameter.named("seed")
-//                    .asLong()
-//                    .random(0, Long.MAX_VALUE, 10);
-//
-//            ParameterSet parameters = new ParameterSet(populationSize, seed);
-//
-//            Samples samples = parameters.enumerate();
+            Map<String, String> variablesMap = new HashMap<>();
+            Map<String, Double> objectivesMap = new HashMap<>();
+            Map<String, Double> constraintsMap = new HashMap<>();
 
-            var algorithm = queueData.algorithm();
-            int maxEvaluations = queueData.budget();
-
-            algorithm.run(maxEvaluations);
-            NondominatedPopulation result = algorithm.getResult();
-            result.display();
-            logger.info("result: {}", result);
-            Indicators moeaIndicators = queueData.indicators();
-            Indicators.IndicatorValues indires = moeaIndicators.apply(result);
-            logger.info("indi: {}", moeaIndicators);
-            List<ExperimentPartIndicator> indicatorsList = new ArrayList<>();
-
-            logger.info("test: {}", result.size());
-
-            EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
-//            indicators.forEach(indicator -> {
-//                String name = indicator.name();
-//                double value = indires.get(indicator);
-//                logger.info("Indicator {}: {}", name, value);
-//                ExperimentPartIndicator experimentPartIndicator = new ExperimentPartIndicator(name, value);
-//                experimentPartIndicator.setExperimentPart(part);
-//                indicatorsList.add(experimentPartIndicator);
-//                experimentPartIndicatorRepository.save(experimentPartIndicator);
-//
-//            });
-
-            List<ExperimentPartIndicator> existingIndicators = part.getIndicators();
-            indicators.forEach(indicator -> {
-                String name = indicator.name();
-                double value = indires.get(indicator);
-
-                logger.info("Updating Indicator {}: {}", name, value);
-
-                existingIndicators.stream()
-                        .filter(existing -> existing.getName().equalsIgnoreCase(name))
-                        .findFirst()
-                        .ifPresentOrElse(
-                                existingInd -> {
-                                    existingInd.setValue(value);
-
-                                    experimentPartIndicatorRepository.save(existingInd);
-                                },
-                                () -> {
-                                    ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
-                                    newInd.setExperimentPart(part);
-                                    existingIndicators.add(newInd);
-                                    experimentPartIndicatorRepository.save(newInd);
-                                }
-                        );
-            });
-
-
-            List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
-
-            for (Solution solution: result) {
-
-                Map<String, String> variablesMap = new HashMap<>();
-                Map<String, Double> objectivesMap = new HashMap<>();
-                Map<String, Double> constraintsMap = new HashMap<>();
-
-                for (int i = 0; i < solution.getNumberOfVariables(); i++) {
-                    String key = "var_" + i;
-                    variablesMap.put(key, solution.getVariable(i).encode());
-                }
-
-
-                for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
-                    String key = "obj_" + i;
-                    objectivesMap.put(key, solution.getObjectiveValue(i));
-                }
-
-                for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
-                    String key = "const_" + i;
-                    constraintsMap.put(key, solution.getConstraintValue(i));
-                }
-                ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
-                solutionEntities.add(solutionEntity);
+            for (int i = 0; i < solution.getNumberOfVariables(); i++) {
+                String key = "var_" + i;
+                variablesMap.put(key, solution.getVariable(i).encode());
             }
 
-//            experimentPartSolutionEntityRepository.saveAll(solutionEntities);
-//            part.setSolutionEntities(solutionEntities);
 
-            part.getSolutionEntities().clear();
-            part.getSolutionEntities().addAll(solutionEntities);
-            experimentPartSolutionEntityRepository.saveAll(solutionEntities);
+            for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
+                String key = "obj_" + i;
+                objectivesMap.put(key, solution.getObjectiveValue(i));
+            }
 
-
-//            if (moeaIndicators != null && part.getIndicators() != null) {
-//                for (ExperimentPartIndicator partIndicatorEntity : part.getIndicators()) {
-//                    try {
-//                        logger.info("name: {}", partIndicatorEntity.getName());
-//                        logger.info("indicators: {}", moeaIndicators);
-//                        logger.info("result: {}", result);
-//
-//                        Indicators.IndicatorValues indicatorValues = moeaIndicators.apply(result);
-//                        indicatorValues.display();
-//
-//                    } catch (Exception e) {
-//                        logger.warn("Could not calculate indicator '{}': {}",
-//                                partIndicatorEntity.getName(), e.getMessage());
-////                        partIndicatorEntity.setValue(-1);
-//                    }
-//                }
-//            }
-
-//            part.setStatus(ExperimentPartStatus.COMPLETED);
-//            part.setFinishedAt(OffsetDateTime.now());
-//            logger.info("Finished execution of ExperimentPart ID: {}", partId);
-//
-//        } catch (Exception e) {
-//            logger.error("Error executing ExperimentPart ID: " + partId, e);
-//            part.setStatus(ExperimentPartStatus.FAILED);
-//            part.setErrorMessage(e.getMessage());
-//            part.setFinishedAt(OffsetDateTime.now());
-//
-//        } finally {
-////            logger.info("getting here?");
-//            experimentPartRepository.save(part);
-////            logger.info("and here?");
-//        }
+            for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
+                String key = "const_" + i;
+                constraintsMap.put(key, solution.getConstraintValue(i));
+            }
+            ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
+            solutionEntities.add(solutionEntity);
+        }
+        part.getSolutionEntities().clear();
+        part.getSolutionEntities().addAll(solutionEntities);
+        experimentPartSolutionRepository.saveAll(solutionEntities);
     }
 
 }

@@ -5,5 +5,5 @@ import org.springframework.stereotype.Repository;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolution;
 
 @Repository
-public interface ExperimentPartSolutionEntityRepository extends JpaRepository<ExperimentPartSolution, Long> {
+public interface ExperimentPartSolutionRepository extends JpaRepository<ExperimentPartSolution, Long> {
 }
