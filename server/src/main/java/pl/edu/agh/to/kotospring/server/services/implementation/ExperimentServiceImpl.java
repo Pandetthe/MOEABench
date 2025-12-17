@@ -14,6 +14,7 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
@@ -34,16 +35,18 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final AlgorithmRegistryService algorithmRegistry;
     private final IndicatorRegistryService indicatorRegistry;
     private final ExperimentRepository experimentRepository;
+    private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentExecutionService executionService;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
                                  AlgorithmRegistryService algorithmRegistry,
                                  IndicatorRegistryService indicatorRegistry,
-                                 ExperimentRepository experimentRepository, ExperimentExecutionService executionService) {
+                                 ExperimentRepository experimentRepository, ExperimentPartRepository experimentPartRepository, ExperimentExecutionService executionService) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
         this.experimentRepository = experimentRepository;
+        this.experimentPartRepository = experimentPartRepository;
         this.executionService = executionService;
     }
 
@@ -71,7 +74,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         // TODO: Queue experiment parts
 
         for (int i = 0; i < experimentPartList.size(); i++) {
-            logger.info("in loop");
+            logger.info("experiment part size: {}", experimentPartList.size());
             ExperimentPart savedPart = experimentPartList.get(i);
             QueueData originalQueueData = queueDataList.get(i);
 
@@ -85,6 +88,7 @@ public class ExperimentServiceImpl implements ExperimentService {
             logger.info("algo = {}", readyToRunData.getAlgorithm());
 
             executionService.runExperimentPart(readyToRunData);
+            logger.info("after runExperimentPart");
             if (i == 0) {
                 experiment.setStartedAt(OffsetDateTime.now());
                 experiment.setStatus(ExperimentStatus.IN_PROGRESS);
@@ -95,7 +99,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         experiment.setStatus(ExperimentStatus.SUCCESS);
         experimentRepository.save(experiment);
 
-
+        logger.info("Created experiment with id {}", experiment.getId());
         return new CreateExperimentResponse(experiment.getId());
     }
 
@@ -172,7 +176,12 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     public Optional<GetExperimentPartStatusResponse> getExperimentStatus(long id, long partId) {
-        return Optional.empty();
+        return experimentPartRepository.findById(partId)
+                .filter(part -> part.getExperiment().getId().equals(id))
+                .map(part -> new GetExperimentPartStatusResponse(
+                        part.getStatus(),
+                        part.getErrorMessage()
+                ));
     }
 
     @Override

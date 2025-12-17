@@ -11,6 +11,7 @@ import org.moeaframework.analysis.stream.Partition;
 import org.moeaframework.core.PRNG;
 import org.moeaframework.core.Solution;
 import org.moeaframework.core.indicator.Hypervolume;
+import org.moeaframework.core.indicator.Indicator;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.indicator.StandardIndicator;
 import org.moeaframework.core.population.NondominatedPopulation;
@@ -23,8 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolutionEntity;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartIndicatorRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartSolutionEntityRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
@@ -35,18 +39,22 @@ import java.util.*;
 public class ExperimentExecutionService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionService.class);
     private final ExperimentPartRepository experimentPartRepository;
-    private final IndicatorRegistryService indicatorRegistryService;
+    private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
+    private final ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository;
 
-    public ExperimentExecutionService(ExperimentPartRepository experimentPartRepository, IndicatorRegistryService indicatorRegistryService) {
+    public ExperimentExecutionService(ExperimentPartRepository experimentPartRepository, IndicatorRegistryService indicatorRegistryService, ExperimentPartIndicatorRepository experimentPartIndicatorRepository, ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository) {
         this.experimentPartRepository = experimentPartRepository;
-        this.indicatorRegistryService = indicatorRegistryService;
+        this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
+        this.experimentPartSolutionEntityRepository = experimentPartSolutionEntityRepository;
     }
 
     @Async("threadPoolTaskExecutor")
     @Transactional
     public void runExperimentPart(QueueData queueData) {
         Long partId = queueData.getExperimentPartId();
-        logger.info("Starting execution of ExperimentPart ID: {}", partId);
+//        logger.info("Starting execution of ExperimentPart ID: {}", partId);
+        logger.info(">>> [THREAD: {}] Starting execution of ExperimentPart ID: {}",
+                Thread.currentThread().getName(), partId);
 
         ExperimentPart part = experimentPartRepository.findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
@@ -85,21 +93,101 @@ public class ExperimentExecutionService {
             NondominatedPopulation result = algorithm.getResult();
             result.display();
             logger.info("result: {}", result);
-            Indicators indicatorsList = queueData.getIndicators();
-            EnumSet<StandardIndicator> indicatorNames = indicatorsList.getSelectedIndicators();
+            Indicators moeaIndicators = queueData.getIndicators();
+            Indicators.IndicatorValues indires = moeaIndicators.apply(result);
+            logger.info("indi: {}", moeaIndicators);
+            List<ExperimentPartIndicator> indicatorsList = new ArrayList<>();
 
-            Indicators moeaIndicators = indicatorRegistryService.getIndicators(indicatorNames, algorithm.getProblem(), result);
+            logger.info("test: {}", result.size());
+//            Solution solution = result.get()
 
-//            NondominatedPopulation referenceSet = NondominatedPopulation.load("./pf/DTLZ2.3D.pf");
-//            Indicators indicators = Indicators.all(algorithm.getProblem(), referenceSet);
-//            Hypervolume hypervolume = new Hypervolume(algorithm.getProblem(), referenceSet);
-//            hypervolume.evaluate(result);
-//            Indicators.IndicatorValues indicatorValues = indicators.apply(result);
-//            indicatorValues.display();
-//            logger.info("Hypervolume: {}", hypervolume.evaluate(result));
+            EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
+//            indicators.forEach(indicator -> {
+//                String name = indicator.name();
+//                double value = indires.get(indicator);
+//                logger.info("Indicator {}: {}", name, value);
+//                ExperimentPartIndicator experimentPartIndicator = new ExperimentPartIndicator(name, value);
+//                experimentPartIndicator.setExperimentPart(part);
+//                indicatorsList.add(experimentPartIndicator);
+//                experimentPartIndicatorRepository.save(experimentPartIndicator);
+//
+//            });
 
-//            Indicators.IndicatorValues indicatorValues = moeaIndicators.apply(result);
-//            indicatorValues.display();
+            List<ExperimentPartIndicator> existingIndicators = part.getIndicators();
+            indicators.forEach(indicator -> {
+                String name = indicator.name();
+                double value = indires.get(indicator);
+
+                logger.info("Updating Indicator {}: {}", name, value);
+
+                // SZUKAMY: Czy ten indykator już istnieje w bazie dla tego Part?
+                existingIndicators.stream()
+                        .filter(existing -> existing.getName().equalsIgnoreCase(name))
+                        .findFirst()
+                        .ifPresentOrElse(
+                                // SCENARIUSZ A: Istnieje -> Aktualizujemy wartość (UPDATE)
+                                existingInd -> {
+                                    existingInd.setValue(value);
+                                    // Nie musisz robić save, jeśli jesteś w @Transactional,
+                                    // Hibernate sam wykryje zmianę (dirty checking).
+                                    // Ale dla pewności możesz:
+                                    experimentPartIndicatorRepository.save(existingInd);
+                                },
+                                // SCENARIUSZ B: Nie istnieje (np. jakiś nowy) -> Tworzymy (INSERT)
+                                () -> {
+                                    ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
+                                    newInd.setExperimentPart(part);
+                                    existingIndicators.add(newInd); // Dodajemy do listy w obiekcie
+                                    experimentPartIndicatorRepository.save(newInd);
+                                }
+                        );
+            });
+
+//            part.setIndicators(indicatorsList);
+//            logger.info("List: {}", indicatorsList);
+
+
+            List<ExperimentPartSolutionEntity> solutionEntities = new ArrayList<>();
+
+            for (Solution solution: result) {
+
+                Map<String, String> variablesMap = new HashMap<>();
+                Map<String, Double> objectivesMap = new HashMap<>();
+                Map<String, Double> constraintsMap = new HashMap<>();
+
+                for (int i = 0; i < solution.getNumberOfVariables(); i++) {
+                    String key = "var_" + i;
+                    variablesMap.put(key, solution.getVariable(i).encode());
+                }
+
+
+                for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
+                    String key = "obj_" + i;
+                    objectivesMap.put(key, solution.getObjectiveValue(i));
+                }
+
+                for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
+                    String key = "const_" + i;
+                    constraintsMap.put(key, solution.getConstraintValue(i));
+                }
+                ExperimentPartSolutionEntity solutionEntity = new ExperimentPartSolutionEntity(part, variablesMap, objectivesMap, constraintsMap);
+                solutionEntities.add(solutionEntity);
+            }
+
+//            experimentPartSolutionEntityRepository.saveAll(solutionEntities);
+//            part.setSolutionEntities(solutionEntities);
+
+            part.getSolutionEntities().clear();
+
+            part.getSolutionEntities().addAll(solutionEntities);
+
+            experimentPartSolutionEntityRepository.saveAll(solutionEntities);
+
+
+//            EnumSet<StandardIndicator> indicatorNames = indicatorsList.getSelectedIndicators();
+//
+//            Indicators moeaIndicators = indicatorRegistryService.getIndicators(indicatorNames, algorithm.getProblem(), result);
+
 
 //            Indicators indicators = indicatorRegistryService.getIndicators(moeaIndicators, algorithm.getProblem(), result);
 
@@ -114,17 +202,6 @@ public class ExperimentExecutionService {
                         Indicators.IndicatorValues indicatorValues = moeaIndicators.apply(result);
                         indicatorValues.display();
 
-
-//                        Hypervolume hypervolume = new Hypervolume(algorithm.getProblem(), NondominatedPopulation.load("./pf/DTLZ2.2D.pf"));
-//                        hypervolume.evaluate(result);
-//                        hypervolume.
-
-//                        Partition<Integer, Double> avgHypervolume = result
-//                                .stream()
-//                                .map(hypervolume::evaluate)
-//                                .groupBy(Groupings.exactValue(populationSize))
-//                                .measureEach(Measures.average())
-//                                .sorted();
 //
 //                        avgHypervolume.display();
 
@@ -136,8 +213,6 @@ public class ExperimentExecutionService {
                 }
             }
 
-//            saveSolutionsToDatabase(part, result);
-
             part.setStatus(ExperimentPartStatus.COMPLETED);
             part.setFinishedAt(OffsetDateTime.now());
             logger.info("Finished execution of ExperimentPart ID: {}", partId);
@@ -147,25 +222,12 @@ public class ExperimentExecutionService {
             part.setStatus(ExperimentPartStatus.FAILED);
             part.setErrorMessage(e.getMessage());
             part.setFinishedAt(OffsetDateTime.now());
+
         } finally {
+//            logger.info("getting here?");
             experimentPartRepository.save(part);
+//            logger.info("and here?");
         }
     }
 
-    private void saveSolutionsToDatabase(ExperimentPart part, NondominatedPopulation population) {
-        for (Solution solution : population) {
-
-//            Map<String, Double> objectiveMap = new HashMap<>();
-//            for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
-//                String key = "obj_" + i;
-//                objectiveMap.put(key, solution.getObjective(i));
-//            }
-//
-//            Map<String, Double> constraintMap = new HashMap<>();
-//            for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
-//                String key = "const_" + i;
-//                constraintMap.put(key, solution.getConstraint(i));
-//            }
-        }
-    }
 }

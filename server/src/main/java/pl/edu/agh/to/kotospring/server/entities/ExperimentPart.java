@@ -57,6 +57,9 @@ public class ExperimentPart {
     public List<ExperimentPartSolutionEntity> getSolutionEntities() {
         return solutionEntities;
     }
+    public void setSolutionEntities(List<ExperimentPartSolutionEntity> solutionEntities) {
+        this.solutionEntities = solutionEntities;
+    }
 
 
 
