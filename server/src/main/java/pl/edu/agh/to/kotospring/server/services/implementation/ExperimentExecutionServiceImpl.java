@@ -1,9 +1,12 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
 import org.moeaframework.core.Solution;
+import org.moeaframework.core.constraint.Constraint;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.indicator.StandardIndicator;
+import org.moeaframework.core.objective.Objective;
 import org.moeaframework.core.population.NondominatedPopulation;
+import org.moeaframework.core.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -60,7 +63,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             self.updatePartStatus(partId, ExperimentPartStatus.COMPLETED, null, OffsetDateTime.now());
             logger.info("Finished execution of ExperimentPart ID: {}", partId);
         } catch (Exception e) {
-            logger.error("Error executing ExperimentPart ID: " + partId, e);
+            logger.error("Error executing ExperimentPart ID: {}", partId, e);
             self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
         } finally {
             if (experimentId != null) {
@@ -153,25 +156,24 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
 
         for (Solution solution: result) {
-
             Map<String, String> variablesMap = new HashMap<>();
             Map<String, Double> objectivesMap = new HashMap<>();
             Map<String, Double> constraintsMap = new HashMap<>();
 
             for (int i = 0; i < solution.getNumberOfVariables(); i++) {
-                String key = "var_" + i;
-                variablesMap.put(key, solution.getVariable(i).encode());
+                Variable variable = solution.getVariable(i);
+                variablesMap.put(variable.getName(), variable.encode());
             }
 
 
             for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
-                String key = "obj_" + i;
-                objectivesMap.put(key, solution.getObjectiveValue(i));
+                Objective objective = solution.getObjective(i);
+                objectivesMap.put(objective.getName(), objective.getValue());
             }
 
             for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
-                String key = "const_" + i;
-                constraintsMap.put(key, solution.getConstraintValue(i));
+                Constraint constraint = solution.getConstraint(i);
+                constraintsMap.put(constraint.getName(), constraint.getValue());
             }
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
             solutionEntities.add(solutionEntity);
