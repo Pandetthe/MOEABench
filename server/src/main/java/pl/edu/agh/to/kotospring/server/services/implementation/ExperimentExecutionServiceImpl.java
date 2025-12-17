@@ -34,45 +34,76 @@ import java.util.*;
 @Service
 public class ExperimentExecutionServiceImpl implements ExperimentExecutionService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionServiceImpl.class);
+
     private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
-    private final ExperimentExecutionServiceImpl self;
     private final ExperimentRepository experimentRepository;
+
+    // Self-injection to allow calling @Transactional methods from within the same class
+    private final ExperimentExecutionServiceImpl self;
 
     public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
                                           ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
                                           ExperimentPartSolutionRepository experimentPartSolutionRepository,
-                                          @Lazy ExperimentExecutionServiceImpl self,
-                                          ExperimentRepository experimentRepository) {
+                                          ExperimentRepository experimentRepository,
+                                          @Lazy ExperimentExecutionServiceImpl self) {
         this.experimentPartRepository = experimentPartRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
         this.experimentPartSolutionRepository = experimentPartSolutionRepository;
-        this.self = self;
         this.experimentRepository = experimentRepository;
+        this.self = self;
     }
 
+    @Override
     @Async("experimentExecutor")
-    public void partStatusManager(QueueData queueData) {
+    public void enqueue(QueueData queueData) {
         Long partId = queueData.getExperimentPartId();
-        logger.info("Starting execution of ExperimentPart ID: {}", partId);
+        logger.info("Manager starting for ExperimentPart ID: {}", partId);
+
         Long experimentId = experimentPartRepository.findById(partId)
                 .map(part -> part.getExperiment().getId())
                 .orElse(null);
-        self.updatePartStatus(partId, ExperimentPartStatus.RUNNING, OffsetDateTime.now(), null);
+
+        if (experimentId == null) {
+            logger.error("ExperimentPart {} has no associated Experiment. Aborting.", partId);
+            return;
+        }
 
         try {
+            self.markExperimentAsStartedIfNecessary(experimentId);
+
+            self.updatePartStatus(partId, ExperimentPartStatus.RUNNING, OffsetDateTime.now(), null);
+
             self.runExperimentPart(queueData);
 
             self.updatePartStatus(partId, ExperimentPartStatus.COMPLETED, null, OffsetDateTime.now());
             logger.info("Finished execution of ExperimentPart ID: {}", partId);
+
         } catch (Exception e) {
             logger.error("Error executing ExperimentPart ID: {}", partId, e);
             self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
         } finally {
-            if (experimentId != null) {
-                self.checkAndUpdateExperimentStatus(experimentId);
+            self.checkAndUpdateExperimentStatus(experimentId);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markExperimentAsStartedIfNecessary(Long experimentId) {
+        Experiment experiment = experimentRepository.findById(experimentId)
+                .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
+
+        if (experiment.getStatus() != ExperimentStatus.IN_PROGRESS &&
+                experiment.getStatus() != ExperimentStatus.SUCCESS &&
+                experiment.getStatus() != ExperimentStatus.PARTIAL_SUCCESS &&
+                experiment.getStatus() != ExperimentStatus.FAILED) {
+
+            logger.info("Marking Experiment {} as IN_PROGRESS", experimentId);
+            experiment.setStatus(ExperimentStatus.IN_PROGRESS);
+            if (experiment.getStartedAt() == null) {
+                experiment.setStartedAt(OffsetDateTime.now());
             }
+            experimentRepository.save(experiment);
         }
     }
 
@@ -90,7 +121,6 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         }
 
         experimentPartRepository.save(part);
-        experimentPartRepository.flush();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -99,11 +129,13 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
 
         part.setStatus(status);
+        if (errorMessage != null && errorMessage.length() > 2000) {
+            errorMessage = errorMessage.substring(0, 2000) + "...";
+        }
         part.setErrorMessage(errorMessage);
         part.setFinishedAt(finishedAt);
 
         experimentPartRepository.save(part);
-        experimentPartRepository.flush();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -113,21 +145,22 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
         Set<ExperimentPart> parts = experiment.getParts();
 
-        boolean allFinished = parts.stream()
-                .allMatch(part -> part.getStatus() == ExperimentPartStatus.COMPLETED
-                        || part.getStatus() == ExperimentPartStatus.FAILED);
+        boolean anyRunningOrPending = parts.stream()
+                .anyMatch(part -> part.getStatus() == ExperimentPartStatus.RUNNING
+                        || part.getStatus() == ExperimentPartStatus.QUEUED);
 
-        if (!allFinished) {
-            logger.info("Experiment {} still has running parts", experimentId);
+        if (anyRunningOrPending) {
             return;
         }
+
+        // Calculate statistics
+        long totalCount = parts.size();
         long completedCount = parts.stream()
                 .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
                 .count();
         long failedCount = parts.stream()
                 .filter(part -> part.getStatus() == ExperimentPartStatus.FAILED)
                 .count();
-        long totalCount = parts.size();
 
         ExperimentStatus finalStatus;
         if (completedCount == totalCount) {
@@ -142,64 +175,67 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         experiment.setFinishedAt(OffsetDateTime.now());
         experimentRepository.save(experiment);
 
-        logger.info("Experiment {} finished with status {} (completed: {}/{}, failed: {}/{})",
-                experimentId, finalStatus, completedCount, totalCount, failedCount, totalCount);
+        logger.info("Experiment {} finished with status {} (Completed: {}, Failed: {}, Total: {})",
+                experimentId, finalStatus, completedCount, failedCount, totalCount);
     }
 
     @Transactional
     public void runExperimentPart(QueueData queueData) {
         Long partId = queueData.getExperimentPartId();
-        ExperimentPart part = experimentPartRepository
-                .findById(partId)
+        ExperimentPart part = experimentPartRepository.findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
-        part.setStartedAt(OffsetDateTime.now());
-        part.setStatus(ExperimentPartStatus.RUNNING);
-        experimentPartRepository.save(part);
+
         Algorithm algorithm = queueData.getAlgorithm();
         int budget = queueData.getBudget();
         algorithm.run(budget);
-        NondominatedPopulation result = algorithm.getResult();
-        Indicators moeaIndicators = queueData.getIndicators();
-        Indicators.IndicatorValues indires = moeaIndicators.apply(result);
 
+        NondominatedPopulation result = algorithm.getResult();
+
+        processIndicators(part, queueData.getIndicators(), result);
+
+        saveSolutions(part, result);
+    }
+
+    private void processIndicators(ExperimentPart part, Indicators moeaIndicators, NondominatedPopulation result) {
+        if (moeaIndicators == null) return;
+
+        Indicators.IndicatorValues indicatorValues = moeaIndicators.apply(result);
         EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
         Set<ExperimentPartIndicator> existingIndicators = part.getIndicators();
+
         indicators.forEach(indicator -> {
             String name = indicator.name();
-            double value = indires.get(indicator);
+            double value = indicatorValues.get(indicator);
 
-            logger.info("Updating Indicator {}: {}", name, value);
-
-            existingIndicators.stream()
+            Optional<ExperimentPartIndicator> existingOpt = existingIndicators.stream()
                     .filter(existing -> existing.getName().equalsIgnoreCase(name))
-                    .findFirst()
-                    .ifPresentOrElse(
-                            existingInd -> {
-                                existingInd.setValue(value);
+                    .findFirst();
 
-                                experimentPartIndicatorRepository.save(existingInd);
-                            },
-                            () -> {
-                                ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
-                                newInd.setExperimentPart(part);
-                                existingIndicators.add(newInd);
-                                experimentPartIndicatorRepository.save(newInd);
-                            }
-                    );
+            if (existingOpt.isPresent()) {
+                ExperimentPartIndicator existingInd = existingOpt.get();
+                existingInd.setValue(value);
+                experimentPartIndicatorRepository.save(existingInd);
+            } else {
+                ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
+                newInd.setExperimentPart(part);
+                experimentPartIndicatorRepository.save(newInd);
+                existingIndicators.add(newInd);
+            }
         });
+    }
 
-
+    private void saveSolutions(ExperimentPart part, NondominatedPopulation result) {
         List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
 
-        for (Solution solution: result) {
+        for (Solution solution : result) {
             Map<String, String> variablesMap = new HashMap<>();
             Map<String, Double> objectivesMap = new HashMap<>();
             Map<String, Double> constraintsMap = new HashMap<>();
+
             for (int i = 0; i < solution.getNumberOfVariables(); i++) {
                 Variable variable = solution.getVariable(i);
                 variablesMap.put(Variable.getNameOrDefault(variable, i), variable.encode());
             }
-
             for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
                 Objective objective = solution.getObjective(i);
                 objectivesMap.put(Objective.getNameOrDefault(objective, i), objective.getValue());
@@ -209,9 +245,13 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                 Constraint constraint = solution.getConstraint(i);
                 constraintsMap.put(Constraint.getNameOrDefault(constraint, i), constraint.getValue());
             }
+
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
-            part.addSolution(solutionEntity);
+            solutionEntities.add(solutionEntity);
         }
-        experimentPartSolutionRepository.saveAll(solutionEntities);
+
+        if (!solutionEntities.isEmpty()) {
+            experimentPartSolutionRepository.saveAll(solutionEntities);
+        }
     }
 }

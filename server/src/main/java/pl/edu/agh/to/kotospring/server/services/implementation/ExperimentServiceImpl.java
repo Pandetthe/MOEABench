@@ -74,7 +74,7 @@ public class ExperimentServiceImpl implements ExperimentService {
             ExperimentPart savedPart = experimentPartList.get(i);
             QueueData queueData = queueDataList.get(i);
             queueData.setExperimentPartId(savedPart.getId());
-            executionService.partStatusManager(queueData);
+            executionService.enqueue(queueData);
         }
         logger.info("Successfully created and queued new experiment id={}", experiment.getId());
         return new CreateExperimentResponse(experiment.getId());
@@ -109,7 +109,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         for (String indicatorName : partRequest.indicators()) {
             ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, 0.0);
             indicator.setExperimentPart(experimentPart);
-            experimentPart.getIndicators().add(indicator);
+            experimentPart.addIndicator(indicator);
         }
         QueueData queueData = new QueueData(algorithm, indicatorsObj, budget);
         return Pair.of(experimentPart, queueData);
