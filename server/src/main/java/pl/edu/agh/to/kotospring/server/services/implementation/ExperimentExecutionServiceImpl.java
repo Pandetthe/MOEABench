@@ -45,7 +45,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         this.experimentService = experimentService;
     }
 
-    @Async("threadPoolTaskExecutor")
+    @Async("experimentExecutor")
     public void partStatusManager(QueueData queueData) {
         Long partId = queueData.experimentPartId();
         logger.info("Starting execution of ExperimentPart ID: {}", partId);

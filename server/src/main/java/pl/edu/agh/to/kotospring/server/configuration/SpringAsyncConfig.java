@@ -11,13 +11,13 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class SpringAsyncConfig {
 
-    @Bean(name = "threadPoolTaskExecutor")
+    @Bean(name = "experimentExecutor")
     public Executor threadPoolTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);
         executor.setQueueCapacity(25);
-        executor.setThreadNamePrefix("CustomPool-");
+        executor.setThreadNamePrefix("ExperimentExecutor-");
         executor.initialize();
         return executor;
     }
