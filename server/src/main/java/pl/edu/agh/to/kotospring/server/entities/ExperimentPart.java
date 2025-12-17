@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Entity
 public class ExperimentPart {
@@ -14,12 +13,12 @@ public class ExperimentPart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "experiment_id", nullable = false)
     private Experiment experiment;
 
-    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final List<ExperimentPartAlgorithmParameter> parameters;
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private final Set<ExperimentPartAlgorithmParameter> parameters = new HashSet<>();
 
     @Column(nullable = false, length = 255)
     private String problem;
@@ -28,7 +27,7 @@ public class ExperimentPart {
     private String algorithm;
 
     @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ExperimentPartIndicator> indicators = new ArrayList<>();
+    private Set<ExperimentPartIndicator> indicators = new HashSet<>();
 
     @Column(nullable = false)
     private int budget;
@@ -46,32 +45,23 @@ public class ExperimentPart {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    @OneToMany(
-            mappedBy = "experimentPart",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
-    )
-    private List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
-
-    public List<ExperimentPartSolution> getSolutionEntities() {
-        return solutionEntities;
-    }
-    public void setSolutionEntities(List<ExperimentPartSolution> solutionEntities) {
-        this.solutionEntities = solutionEntities;
-    }
-
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<ExperimentPartSolution> solutions = new HashSet<>();
 
 
     public ExperimentPart() {
-        parameters = new ArrayList<>();
+        this.status = ExperimentPartStatus.QUEUED;
     }
 
     public ExperimentPart(String problem, String algorithm,
-                          List<ExperimentPartAlgorithmParameter> parameters, int budget) {
-        this.status = ExperimentPartStatus.QUEUED;
-        this.problem = problem;
-        this.algorithm = algorithm;
-        this.parameters = parameters;
+                          Collection<ExperimentPartAlgorithmParameter> parameters, int budget) {
+        this();
+        this.problem = Objects.requireNonNull(problem);
+        this.algorithm = Objects.requireNonNull(algorithm);
+        if (parameters != null) {
+            this.parameters.addAll(parameters);
+            this.parameters.forEach(p -> p.setExperimentPart(this));
+        }
         this.budget = budget;
     }
 
@@ -103,16 +93,17 @@ public class ExperimentPart {
         this.algorithm = algorithm;
     }
 
-    public List<ExperimentPartIndicator> getIndicators() {
-        return indicators;
+    public Set<ExperimentPartIndicator> getIndicators() {
+        return Collections.unmodifiableSet(this.indicators);
     }
 
-    public void setIndicators(List<ExperimentPartIndicator> indicators) {
-        this.indicators = indicators;
+    public void addIndicator(ExperimentPartIndicator indicator) {
+        indicator.setExperimentPart(this);
+        this.indicators.add(indicator);
     }
 
     public int getBudget() {
-        return budget;
+        return this.budget;
     }
 
     public void setBudget(int budget) {
@@ -120,7 +111,7 @@ public class ExperimentPart {
     }
 
     public ExperimentPartStatus getStatus() {
-        return status;
+        return this.status;
     }
 
     public void setStatus(ExperimentPartStatus status) {
@@ -151,7 +142,18 @@ public class ExperimentPart {
         this.finishedAt = finishedAt;
     }
 
-    public List<ExperimentPartAlgorithmParameter> getParameters() {
-        return parameters;
+    public Set<ExperimentPartAlgorithmParameter> getParameters() {
+        return Collections.unmodifiableSet(this.parameters);
+    }
+
+    public Set<ExperimentPartSolution> getSolutions() {
+        return Collections.unmodifiableSet(solutions);
+    }
+
+    public void addSolution(ExperimentPartSolution solution) {
+        if (solution == null) {
+            throw new IllegalArgumentException("solution must not be null");
+        }
+        this.solutions.add(solution);
     }
 }

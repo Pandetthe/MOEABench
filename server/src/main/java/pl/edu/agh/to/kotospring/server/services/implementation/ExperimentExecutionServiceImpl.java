@@ -120,7 +120,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         Indicators.IndicatorValues indires = moeaIndicators.apply(result);
 
         EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
-        List<ExperimentPartIndicator> existingIndicators = part.getIndicators();
+        Set<ExperimentPartIndicator> existingIndicators = part.getIndicators();
         indicators.forEach(indicator -> {
             String name = indicator.name();
             double value = indires.get(indicator);
@@ -170,8 +170,8 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
             solutionEntities.add(solutionEntity);
         }
-        part.getSolutionEntities().clear();
-        part.getSolutionEntities().addAll(solutionEntities);
+        part.getSolutions().clear();
+        part.getSolutions().addAll(solutionEntities);
         experimentPartSolutionRepository.saveAll(solutionEntities);
     }
 

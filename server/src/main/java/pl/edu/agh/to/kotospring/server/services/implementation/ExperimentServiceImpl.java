@@ -111,7 +111,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         Experiment experiment = experimentRepository.findById(experimentId)
                 .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
 
-        List<ExperimentPart> parts = experiment.getParts();
+        Set<ExperimentPart> parts = experiment.getParts();
 
         boolean allFinished = parts.stream()
                 .allMatch(part -> part.getStatus() == ExperimentPartStatus.COMPLETED
@@ -182,6 +182,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public GetExperimentsResponse getExperiments() {
         return experimentRepository.findAll()
                 .stream()
@@ -199,8 +200,9 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<GetExperimentResponse> getExperiment(long id) {
-        return experimentRepository.findById(id)
+        return experimentRepository.findWithPartsById(id)
                 .map(experiment -> new GetExperimentResponse(
                         experiment.getStatus(),
                         experiment.getQueuedAt(),
@@ -226,6 +228,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<GetExperimentStatusResponse> getExperimentStatus(long id) {
         return experimentRepository.findById(id)
                 .map(experiment -> new GetExperimentStatusResponse(
@@ -234,6 +237,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<GetExperimentPartStatusResponse> getExperimentStatus(long id, long partId) {
         return experimentPartRepository.findById(partId)
                 .filter(part -> part.getExperiment().getId().equals(id))
@@ -244,11 +248,12 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<GetExperimentResultResponseData> getExperimentResult(long id) {
-        return experimentRepository.findById(id)
+        return experimentRepository.findWithFullSolutionById(id)
                 .map(experiment -> {
                     List<AlgorithmResult> allResults = experiment.getParts().stream()
-                            .flatMap(part -> part.getSolutionEntities().stream())
+                            .flatMap(part -> part.getSolutions().stream())
                             .map(solution -> new AlgorithmResult(
                                     solution.getVariables(),
                                     solution.getObjectives(),
@@ -273,11 +278,11 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<GetExperimentPartResultResponse> getExperimentResult(long id, long partId) {
-        return experimentPartRepository.findById(partId)
-                .filter(part -> part.getExperiment().getId().equals(id))
+        return experimentPartRepository.findWithFullSolutionById(id, partId)
                 .map(part -> {
-                    List<AlgorithmResult> results = part.getSolutionEntities().stream()
+                    List<AlgorithmResult> results = part.getSolutions().stream()
                             .map(solution -> new AlgorithmResult(
                                     solution.getVariables(),
                                     solution.getObjectives(),
@@ -296,6 +301,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     }
 
     @Override
+    @Transactional
     public boolean deleteExperiment(long id) {
         if(experimentRepository.existsById(id)){
             experimentRepository.deleteById(id);

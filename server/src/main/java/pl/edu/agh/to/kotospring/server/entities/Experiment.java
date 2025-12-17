@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Entity
 public class Experiment {
@@ -27,18 +26,33 @@ public class Experiment {
     private OffsetDateTime finishedAt;
 
     @OneToMany(mappedBy = "experiment", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final List<ExperimentPart> parts;
+    private final Set<ExperimentPart> parts = new HashSet<>();
 
     public Experiment(OffsetDateTime queuedAt,
-                      List<ExperimentPart> parts) {
+                      Collection<ExperimentPart> parts) {
         this.status = ExperimentStatus.QUEUED;
-        this.queuedAt = queuedAt;
-        this.parts = parts;
+        this.queuedAt =  Objects.requireNonNull(queuedAt, "queuedAt must not be null");
+        if (parts != null) {
+            for (ExperimentPart part : parts) {
+                addPart(part);
+            }
+        }
     }
 
     public Experiment() {
-        parts = new ArrayList<>();
-    };
+    }
+
+    public void addPart(ExperimentPart part) {
+        if (part == null) {
+            throw new IllegalArgumentException("part must not be null");
+        }
+        this.parts.add(part);
+        part.setExperiment(this);
+    }
+
+    public Long getId() {
+        return id;
+    }
 
     public void setStatus(ExperimentStatus status) {
         this.status = status;
@@ -48,29 +62,25 @@ public class Experiment {
         return this.status;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setQueuedAt(OffsetDateTime queued_at) {
-        this.queuedAt = queued_at;
+    public void setQueuedAt(OffsetDateTime queuedAt) {
+        this.queuedAt = queuedAt;
     }
     public OffsetDateTime getQueuedAt() {
         return queuedAt;
     }
-    public void setStartedAt(OffsetDateTime started_at) {
-        this.startedAt = started_at;
+    public void setStartedAt(OffsetDateTime startedAt) {
+        this.startedAt = startedAt;
     }
     public OffsetDateTime getStartedAt() {
         return startedAt;
     }
-    public void setFinishedAt(OffsetDateTime finished_at) {
-        this.finishedAt = finished_at;
+    public void setFinishedAt(OffsetDateTime finishedAt) {
+        this.finishedAt = finishedAt;
     }
     public OffsetDateTime getFinishedAt() {
         return finishedAt;
     }
-    public List<ExperimentPart> getParts() {
-        return parts;
+    public Set<ExperimentPart> getParts() {
+        return Collections.unmodifiableSet(parts);
     }
 }
