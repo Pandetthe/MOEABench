@@ -12,7 +12,7 @@ public interface ExperimentClient {
     @GetExchange("/experiments")
     GetExperimentsResponse getExperiments();
 
-    @GetExchange("/experiments/{id}/status")
+    @GetExchange("/experiments/{id}/status/")
     GetExperimentStatusResponse getExperimentStatus(@PathVariable("id") long id);
 
     @GetExchange("/experiments/{id}/status/{partId}")
