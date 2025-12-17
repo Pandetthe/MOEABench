@@ -1,26 +1,15 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
-import org.moeaframework.analysis.parameter.Enumeration;
-import org.moeaframework.analysis.parameter.Parameter;
-import org.moeaframework.analysis.parameter.ParameterSet;
-import org.moeaframework.analysis.sample.SampledResults;
-import org.moeaframework.analysis.sample.Samples;
-import org.moeaframework.analysis.stream.Groupings;
-import org.moeaframework.analysis.stream.Measures;
-import org.moeaframework.analysis.stream.Partition;
-import org.moeaframework.core.PRNG;
 import org.moeaframework.core.Solution;
-import org.moeaframework.core.indicator.Hypervolume;
-import org.moeaframework.core.indicator.Indicator;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.indicator.StandardIndicator;
 import org.moeaframework.core.population.NondominatedPopulation;
-import org.moeaframework.core.variable.RealVariable;
-import org.moeaframework.core.variable.Variable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
@@ -29,30 +18,95 @@ import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartIndicatorRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartSolutionEntityRepository;
-import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
+import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service
-public class ExperimentExecutionService {
-    private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionService.class);
+public class ExperimentExecutionServiceImpl implements ExperimentExecutionService {
+    private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionServiceImpl.class);
     private final ExperimentPartRepository experimentPartRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository;
+    private ExperimentExecutionServiceImpl self;
+    private ExperimentServiceImpl experimentService;
 
-    public ExperimentExecutionService(ExperimentPartRepository experimentPartRepository, IndicatorRegistryService indicatorRegistryService, ExperimentPartIndicatorRepository experimentPartIndicatorRepository, ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository) {
+    public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
+                                          ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
+                                          ExperimentPartSolutionEntityRepository experimentPartSolutionEntityRepository,
+                                          @Lazy ExperimentExecutionServiceImpl self,
+                                          @Lazy ExperimentServiceImpl experimentService) {
         this.experimentPartRepository = experimentPartRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
         this.experimentPartSolutionEntityRepository = experimentPartSolutionEntityRepository;
+        this.self = self;
+        this.experimentService = experimentService;
     }
 
+
+//    public void setSelf(ExperimentExecutionService self) {
+//        this.self = self;
+//    }
+
     @Async("threadPoolTaskExecutor")
+    public void partStatusManager(QueueData queueData) {
+        Long partId = queueData.getExperimentPartId();
+        logger.info("Starting execution of ExperimentPart ID: {}", partId);
+        Long experimentId = experimentPartRepository.findById(partId)
+                .map(part -> part.getExperiment().getId())
+                .orElse(null);
+        self.updatePartStatus(partId, ExperimentPartStatus.RUNNING, OffsetDateTime.now(), null);
+
+        try {
+            self.runExperimentPart(queueData);
+
+            self.updatePartStatus(partId, ExperimentPartStatus.COMPLETED, null, OffsetDateTime.now());
+            logger.info("Finished execution of ExperimentPart ID: {}", partId);
+        } catch (Exception e) {
+            logger.error("Error executing ExperimentPart ID: " + partId, e);
+            self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
+        } finally {
+            if (experimentId != null) {
+                experimentService.checkAndUpdateExperimentStatus(experimentId);
+            }
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updatePartStatus(Long partId, ExperimentPartStatus status, OffsetDateTime startedAt, OffsetDateTime finishedAt) {
+        ExperimentPart part = experimentPartRepository.findById(partId)
+                .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
+
+        part.setStatus(status);
+        if (startedAt != null) {
+            part.setStartedAt(startedAt);
+        }
+        if (finishedAt != null) {
+            part.setFinishedAt(finishedAt);
+        }
+
+        experimentPartRepository.save(part);
+        experimentPartRepository.flush();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void errorPartStatus(Long partId, ExperimentPartStatus status, String errorMessage, OffsetDateTime finishedAt) {
+        ExperimentPart part = experimentPartRepository.findById(partId)
+                .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
+
+        part.setStatus(status);
+        part.setErrorMessage(errorMessage);
+        part.setFinishedAt(finishedAt);
+
+        experimentPartRepository.save(part);
+        experimentPartRepository.flush();
+    }
+
     @Transactional
     public void runExperimentPart(QueueData queueData) {
         Long partId = queueData.getExperimentPartId();
-        logger.info("Starting execution of ExperimentPart ID: {}", partId);
 
         ExperimentPart part = experimentPartRepository.findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
@@ -61,7 +115,8 @@ public class ExperimentExecutionService {
         part.setStatus(ExperimentPartStatus.RUNNING);
         experimentPartRepository.save(part);
 
-        try {
+
+
 
 //            Enumeration<Integer> populationSize = Parameter.named("populationSize")
 //                    .asInt()
@@ -127,7 +182,6 @@ public class ExperimentExecutionService {
             });
 
 
-
             List<ExperimentPartSolutionEntity> solutionEntities = new ArrayList<>();
 
             for (Solution solution: result) {
@@ -181,21 +235,21 @@ public class ExperimentExecutionService {
 //                }
 //            }
 
-            part.setStatus(ExperimentPartStatus.COMPLETED);
-            part.setFinishedAt(OffsetDateTime.now());
-            logger.info("Finished execution of ExperimentPart ID: {}", partId);
-
-        } catch (Exception e) {
-            logger.error("Error executing ExperimentPart ID: " + partId, e);
-            part.setStatus(ExperimentPartStatus.FAILED);
-            part.setErrorMessage(e.getMessage());
-            part.setFinishedAt(OffsetDateTime.now());
-
-        } finally {
-//            logger.info("getting here?");
-            experimentPartRepository.save(part);
-//            logger.info("and here?");
-        }
+//            part.setStatus(ExperimentPartStatus.COMPLETED);
+//            part.setFinishedAt(OffsetDateTime.now());
+//            logger.info("Finished execution of ExperimentPart ID: {}", partId);
+//
+//        } catch (Exception e) {
+//            logger.error("Error executing ExperimentPart ID: " + partId, e);
+//            part.setStatus(ExperimentPartStatus.FAILED);
+//            part.setErrorMessage(e.getMessage());
+//            part.setFinishedAt(OffsetDateTime.now());
+//
+//        } finally {
+////            logger.info("getting here?");
+//            experimentPartRepository.save(part);
+////            logger.info("and here?");
+//        }
     }
 
 }

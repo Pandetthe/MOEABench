@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
@@ -21,6 +22,7 @@ import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ProblemRegistryService;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
@@ -37,12 +39,12 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final IndicatorRegistryService indicatorRegistry;
     private final ExperimentRepository experimentRepository;
     private final ExperimentPartRepository experimentPartRepository;
-    private final ExperimentExecutionService executionService;
+    private final ExperimentExecutionServiceImpl executionService;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
                                  AlgorithmRegistryService algorithmRegistry,
                                  IndicatorRegistryService indicatorRegistry,
-                                 ExperimentRepository experimentRepository, ExperimentPartRepository experimentPartRepository, ExperimentExecutionService executionService) {
+                                 ExperimentRepository experimentRepository, ExperimentPartRepository experimentPartRepository, ExperimentExecutionServiceImpl executionService) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
@@ -70,11 +72,18 @@ public class ExperimentServiceImpl implements ExperimentService {
         for (ExperimentPart part : experimentPartList) {
             part.setExperiment(experiment);
         }
+
+        experiment.setStatus(ExperimentStatus.IN_PROGRESS);
+        experiment.setStartedAt(OffsetDateTime.now());
         experimentRepository.save(experiment);
+        logger.info("Created experiment with ID: {}", experiment.getId());
+
 
         for (int i = 0; i < experimentPartList.size(); i++) {
             logger.info("experiment part size: {}", experimentPartList.size());
             ExperimentPart savedPart = experimentPartList.get(i);
+            logger.info("ExperimentPart {} has ID: {}", i, savedPart.getId());
+
             QueueData originalQueueData = queueDataList.get(i);
 
             QueueData readyToRunData = new QueueData(
@@ -83,23 +92,58 @@ public class ExperimentServiceImpl implements ExperimentService {
                     originalQueueData.getIndicators(),
                     originalQueueData.getBudget()
             );
-            logger.info("id = {}", readyToRunData.getExperimentPartId());
-            logger.info("algo = {}", readyToRunData.getAlgorithm());
 
-            executionService.runExperimentPart(readyToRunData);
+
+            executionService.partStatusManager(readyToRunData);
             logger.info("after runExperimentPart");
-            if (i == 0) {
-                experiment.setStartedAt(OffsetDateTime.now());
-                experiment.setStatus(ExperimentStatus.IN_PROGRESS);
-                experimentRepository.save(experiment);
-            }
+
         }
-        experiment.setFinishedAt(OffsetDateTime.now());
-        experiment.setStatus(ExperimentStatus.SUCCESS);
-        experimentRepository.save(experiment);
+//        experiment.setFinishedAt(OffsetDateTime.now());
+//        experiment.setStatus(ExperimentStatus.SUCCESS);
+//        experimentRepository.save(experiment);
 
         logger.info("Created experiment with id {}", experiment.getId());
         return new CreateExperimentResponse(experiment.getId());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void checkAndUpdateExperimentStatus(Long experimentId) {
+        Experiment experiment = experimentRepository.findById(experimentId)
+                .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
+
+        List<ExperimentPart> parts = experiment.getParts();
+
+        boolean allFinished = parts.stream()
+                .allMatch(part -> part.getStatus() == ExperimentPartStatus.COMPLETED
+                        || part.getStatus() == ExperimentPartStatus.FAILED);
+
+        if (!allFinished) {
+            logger.info("Experiment {} still has running parts", experimentId);
+            return;
+        }
+        long completedCount = parts.stream()
+                .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
+                .count();
+        long failedCount = parts.stream()
+                .filter(part -> part.getStatus() == ExperimentPartStatus.FAILED)
+                .count();
+        long totalCount = parts.size();
+
+        ExperimentStatus finalStatus;
+        if (completedCount == totalCount) {
+            finalStatus = ExperimentStatus.SUCCESS;
+        } else if (completedCount > 0) {
+            finalStatus = ExperimentStatus.PARTIAL_SUCCESS;
+        } else {
+            finalStatus = ExperimentStatus.FAILED;
+        }
+
+        experiment.setStatus(finalStatus);
+        experiment.setFinishedAt(OffsetDateTime.now());
+        experimentRepository.save(experiment);
+
+        logger.info("Experiment {} finished with status {} (completed: {}/{}, failed: {}/{})",
+                experimentId, finalStatus, completedCount, totalCount, failedCount, totalCount);
     }
 
     private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentRequestData partRequest) {
