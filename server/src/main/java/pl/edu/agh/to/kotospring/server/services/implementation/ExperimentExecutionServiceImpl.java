@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
+import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.Solution;
 import org.moeaframework.core.constraint.Constraint;
 import org.moeaframework.core.indicator.Indicators;
@@ -105,26 +106,18 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     @Transactional
     public void runExperimentPart(QueueData queueData) {
         Long partId = queueData.experimentPartId();
-
-        ExperimentPart part = experimentPartRepository.findById(partId)
+        ExperimentPart part = experimentPartRepository
+                .findById(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
-
         part.setStartedAt(OffsetDateTime.now());
         part.setStatus(ExperimentPartStatus.RUNNING);
         experimentPartRepository.save(part);
-        var algorithm = queueData.algorithm();
-        int maxEvaluations = queueData.budget();
-
-        algorithm.run(maxEvaluations);
+        Algorithm algorithm = queueData.algorithm();
+        int budget = queueData.budget();
+        algorithm.run(budget);
         NondominatedPopulation result = algorithm.getResult();
-        result.display();
-        logger.info("result: {}", result);
         Indicators moeaIndicators = queueData.indicators();
         Indicators.IndicatorValues indires = moeaIndicators.apply(result);
-        logger.info("indi: {}", moeaIndicators);
-        List<ExperimentPartIndicator> indicatorsList = new ArrayList<>();
-
-        logger.info("test: {}", result.size());
 
         EnumSet<StandardIndicator> indicators = moeaIndicators.getSelectedIndicators();
         List<ExperimentPartIndicator> existingIndicators = part.getIndicators();
