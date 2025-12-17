@@ -103,46 +103,6 @@ public class ExperimentServiceImpl implements ExperimentService {
         return new CreateExperimentResponse(experiment.getId());
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void checkAndUpdateExperimentStatus(Long experimentId) {
-        Experiment experiment = experimentRepository.findById(experimentId)
-                .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
-
-        Set<ExperimentPart> parts = experiment.getParts();
-
-        boolean allFinished = parts.stream()
-                .allMatch(part -> part.getStatus() == ExperimentPartStatus.COMPLETED
-                        || part.getStatus() == ExperimentPartStatus.FAILED);
-
-        if (!allFinished) {
-            logger.info("Experiment {} still has running parts", experimentId);
-            return;
-        }
-        long completedCount = parts.stream()
-                .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
-                .count();
-        long failedCount = parts.stream()
-                .filter(part -> part.getStatus() == ExperimentPartStatus.FAILED)
-                .count();
-        long totalCount = parts.size();
-
-        ExperimentStatus finalStatus;
-        if (completedCount == totalCount) {
-            finalStatus = ExperimentStatus.SUCCESS;
-        } else if (completedCount > 0) {
-            finalStatus = ExperimentStatus.PARTIAL_SUCCESS;
-        } else {
-            finalStatus = ExperimentStatus.FAILED;
-        }
-
-        experiment.setStatus(finalStatus);
-        experiment.setFinishedAt(OffsetDateTime.now());
-        experimentRepository.save(experiment);
-
-        logger.info("Experiment {} finished with status {} (completed: {}/{}, failed: {}/{})",
-                experimentId, finalStatus, completedCount, totalCount, failedCount, totalCount);
-    }
-
     private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentRequestData partRequest) {
         String problemName = partRequest.problem();
         String algorithmName = partRequest.algorithm();

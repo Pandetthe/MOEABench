@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartSolution;
@@ -22,8 +23,10 @@ import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartIndicatorRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartSolutionRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -35,18 +38,18 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
     private ExperimentExecutionServiceImpl self;
-    private ExperimentServiceImpl experimentService;
+    private final ExperimentRepository experimentRepository;
 
     public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
                                           ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
                                           ExperimentPartSolutionRepository experimentPartSolutionRepository,
                                           @Lazy ExperimentExecutionServiceImpl self,
-                                          @Lazy ExperimentServiceImpl experimentService) {
+                                          ExperimentRepository experimentRepository) {
         this.experimentPartRepository = experimentPartRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
         this.experimentPartSolutionRepository = experimentPartSolutionRepository;
         this.self = self;
-        this.experimentService = experimentService;
+        this.experimentRepository = experimentRepository;
     }
 
     @Async("experimentExecutor")
@@ -68,7 +71,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
         } finally {
             if (experimentId != null) {
-                experimentService.checkAndUpdateExperimentStatus(experimentId);
+                self.checkAndUpdateExperimentStatus(experimentId);
             }
         }
     }
@@ -101,6 +104,46 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
 
         experimentPartRepository.save(part);
         experimentPartRepository.flush();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void checkAndUpdateExperimentStatus(Long experimentId) {
+        Experiment experiment = experimentRepository.findById(experimentId)
+                .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
+
+        Set<ExperimentPart> parts = experiment.getParts();
+
+        boolean allFinished = parts.stream()
+                .allMatch(part -> part.getStatus() == ExperimentPartStatus.COMPLETED
+                        || part.getStatus() == ExperimentPartStatus.FAILED);
+
+        if (!allFinished) {
+            logger.info("Experiment {} still has running parts", experimentId);
+            return;
+        }
+        long completedCount = parts.stream()
+                .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
+                .count();
+        long failedCount = parts.stream()
+                .filter(part -> part.getStatus() == ExperimentPartStatus.FAILED)
+                .count();
+        long totalCount = parts.size();
+
+        ExperimentStatus finalStatus;
+        if (completedCount == totalCount) {
+            finalStatus = ExperimentStatus.SUCCESS;
+        } else if (completedCount > 0) {
+            finalStatus = ExperimentStatus.PARTIAL_SUCCESS;
+        } else {
+            finalStatus = ExperimentStatus.FAILED;
+        }
+
+        experiment.setStatus(finalStatus);
+        experiment.setFinishedAt(OffsetDateTime.now());
+        experimentRepository.save(experiment);
+
+        logger.info("Experiment {} finished with status {} (completed: {}/{}, failed: {}/{})",
+                experimentId, finalStatus, completedCount, totalCount, failedCount, totalCount);
     }
 
     @Transactional
