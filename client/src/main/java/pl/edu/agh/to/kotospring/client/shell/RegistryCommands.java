@@ -2,16 +2,16 @@ package pl.edu.agh.to.kotospring.client.shell;
 
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
-import pl.edu.agh.to.kotospring.client.api.RegistryApi;
+import pl.edu.agh.to.kotospring.client.api.RegistryClient;
 
 import java.util.List;
 
 @ShellComponent
 public class RegistryCommands {
 
-    private final RegistryApi api;
+    private final RegistryClient api;
 
-    public RegistryCommands(RegistryApi api) {
+    public RegistryCommands(RegistryClient api) {
         this.api = api;
     }
 

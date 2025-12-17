@@ -3,7 +3,7 @@ package pl.edu.agh.to.kotospring.client.shell;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
-import pl.edu.agh.to.kotospring.client.api.ExperimentApi;
+import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
 
@@ -14,9 +14,9 @@ import java.util.Set;
 @ShellComponent
 public class ExperimentCommands {
 
-    private final ExperimentApi experimentApi;
+    private final ExperimentClient experimentApi;
 
-    public ExperimentCommands(ExperimentApi experimentApi) {
+    public ExperimentCommands(ExperimentClient experimentApi) {
         this.experimentApi = experimentApi;
     }
 
@@ -100,7 +100,7 @@ public class ExperimentCommands {
                 }
             }
 
-            Thread.sleep(2000);
+
         }
     }
     @ShellMethod(value = "Delete experiment", key = "experiment-delete")
