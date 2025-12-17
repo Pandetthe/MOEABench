@@ -167,10 +167,8 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                 constraintsMap.put(Constraint.getNameOrDefault(constraint, i), constraint.getValue());
             }
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
-            solutionEntities.add(solutionEntity);
+            part.addSolution(solutionEntity);
         }
-        part.getSolutions().clear();
-        part.getSolutions().addAll(solutionEntities);
         experimentPartSolutionRepository.saveAll(solutionEntities);
     }
 
