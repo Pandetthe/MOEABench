@@ -159,21 +159,20 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             Map<String, String> variablesMap = new HashMap<>();
             Map<String, Double> objectivesMap = new HashMap<>();
             Map<String, Double> constraintsMap = new HashMap<>();
-
             for (int i = 0; i < solution.getNumberOfVariables(); i++) {
                 Variable variable = solution.getVariable(i);
-                variablesMap.put(variable.getName(), variable.encode());
+                variablesMap.put(Variable.getNameOrDefault(variable, i), variable.encode());
             }
 
 
             for (int i = 0; i < solution.getNumberOfObjectives(); i++) {
                 Objective objective = solution.getObjective(i);
-                objectivesMap.put(objective.getName(), objective.getValue());
+                objectivesMap.put(Objective.getNameOrDefault(objective, i), objective.getValue());
             }
 
             for (int i = 0; i < solution.getNumberOfConstraints(); i++) {
                 Constraint constraint = solution.getConstraint(i);
-                constraintsMap.put(constraint.getName(), constraint.getValue());
+                constraintsMap.put(Constraint.getNameOrDefault(constraint, i), constraint.getValue());
             }
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(part, variablesMap, objectivesMap, constraintsMap);
             solutionEntities.add(solutionEntity);
