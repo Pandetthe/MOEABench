@@ -37,7 +37,7 @@ public final class AlgorithmRegistryServiceImpl implements AlgorithmRegistryServ
     private static Optional<Algorithm> instantiateAlgorithm(RegisteredAlgorithmProvider provider,
                                                             String name, TypedProperties parameters, Problem problem) {
         try {
-            return Optional.of(provider.getAlgorithm(name, parameters, problem));
+            return Optional.ofNullable(provider.getAlgorithm(name, parameters, problem));
         } catch (ServiceConfigurationError ex) {
             return Optional.empty();
         }

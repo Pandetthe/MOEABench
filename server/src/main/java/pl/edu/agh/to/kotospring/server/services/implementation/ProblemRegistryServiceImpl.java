@@ -35,7 +35,7 @@ public final class ProblemRegistryServiceImpl implements ProblemRegistryService 
 
     private static Optional<Problem> instantiateProblem(RegisteredProblemProvider provider, String name) {
         try {
-            return Optional.of(provider.getProblem(name));
+            return Optional.ofNullable(provider.getProblem(name));
         } catch (ServiceConfigurationError ex) {
             return Optional.empty();
         }
@@ -51,7 +51,7 @@ public final class ProblemRegistryServiceImpl implements ProblemRegistryService 
 
     private static Optional<NondominatedPopulation> instantiateReferenceSet(RegisteredProblemProvider provider, String name) {
         try {
-            return Optional.of(provider.getReferenceSet(name));
+            return Optional.ofNullable(provider.getReferenceSet(name));
         } catch (ServiceConfigurationError ex) {
             return Optional.empty();
         }
