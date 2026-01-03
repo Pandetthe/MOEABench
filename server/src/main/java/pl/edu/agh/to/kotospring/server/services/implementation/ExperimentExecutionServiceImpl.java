@@ -61,31 +61,26 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         Long partId = queueData.getExperimentPartId();
         logger.info("Manager starting for ExperimentPart ID: {}", partId);
 
-        Long experimentId = experimentPartRepository.findById(partId)
+        experimentPartRepository.findById(partId)
                 .map(part -> part.getExperiment().getId())
-                .orElse(null);
+                .ifPresentOrElse(experimentId -> {
+                    try {
+                        self.markExperimentAsStartedIfNecessary(experimentId);
 
-        if (experimentId == null) {
-            logger.error("ExperimentPart {} has no associated Experiment. Aborting.", partId);
-            return;
-        }
+                        self.updatePartStatus(partId, ExperimentPartStatus.RUNNING, OffsetDateTime.now(), null);
 
-        try {
-            self.markExperimentAsStartedIfNecessary(experimentId);
+                        self.runExperimentPart(queueData);
 
-            self.updatePartStatus(partId, ExperimentPartStatus.RUNNING, OffsetDateTime.now(), null);
+                        self.updatePartStatus(partId, ExperimentPartStatus.COMPLETED, null, OffsetDateTime.now());
+                        logger.info("Finished execution of ExperimentPart ID: {}", partId);
 
-            self.runExperimentPart(queueData);
-
-            self.updatePartStatus(partId, ExperimentPartStatus.COMPLETED, null, OffsetDateTime.now());
-            logger.info("Finished execution of ExperimentPart ID: {}", partId);
-
-        } catch (Exception e) {
-            logger.error("Error executing ExperimentPart ID: {}", partId, e);
-            self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
-        } finally {
-            self.checkAndUpdateExperimentStatus(experimentId);
-        }
+                    } catch (Exception e) {
+                        logger.error("Error executing ExperimentPart ID: {}", partId, e);
+                        self.errorPartStatus(partId, ExperimentPartStatus.FAILED, e.getMessage(), OffsetDateTime.now());
+                    } finally {
+                        self.checkAndUpdateExperimentStatus(experimentId);
+                    }
+                }, () -> logger.error("ExperimentPart {} has no associated Experiment or does not exist. Aborting.", partId));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -211,16 +206,18 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                     .filter(existing -> existing.getName().equalsIgnoreCase(name))
                     .findFirst();
 
-            if (existingOpt.isPresent()) {
-                ExperimentPartIndicator existingInd = existingOpt.get();
-                existingInd.setValue(value);
-                experimentPartIndicatorRepository.save(existingInd);
-            } else {
-                ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
-                newInd.setExperimentPart(part);
-                experimentPartIndicatorRepository.save(newInd);
-                existingIndicators.add(newInd);
-            }
+            existingOpt.ifPresentOrElse(
+                    existingInd -> {
+                        existingInd.setValue(value);
+                        experimentPartIndicatorRepository.save(existingInd);
+                    },
+                    () -> {
+                        ExperimentPartIndicator newInd = new ExperimentPartIndicator(name, value);
+                        newInd.setExperimentPart(part);
+                        experimentPartIndicatorRepository.save(newInd);
+                        existingIndicators.add(newInd);
+                    }
+            );
         });
     }
 
