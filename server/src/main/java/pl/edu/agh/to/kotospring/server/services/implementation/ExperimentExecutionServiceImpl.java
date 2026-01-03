@@ -43,6 +43,13 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     // Self-injection to allow calling @Transactional methods from within the same class
     private final ExperimentExecutionServiceImpl self;
 
+    private static final Set<ExperimentStatus> ACTIVE_OR_FINISHED_STATUSES = EnumSet.of(
+            ExperimentStatus.IN_PROGRESS,
+            ExperimentStatus.SUCCESS,
+            ExperimentStatus.PARTIAL_SUCCESS,
+            ExperimentStatus.FAILED
+    );
+
     public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
                                           ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
                                           ExperimentPartSolutionRepository experimentPartSolutionRepository,
@@ -88,11 +95,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         Experiment experiment = experimentRepository.findById(experimentId)
                 .orElseThrow(() -> new IllegalStateException("Experiment not found: " + experimentId));
 
-        if (experiment.getStatus() != ExperimentStatus.IN_PROGRESS &&
-                experiment.getStatus() != ExperimentStatus.SUCCESS &&
-                experiment.getStatus() != ExperimentStatus.PARTIAL_SUCCESS &&
-                experiment.getStatus() != ExperimentStatus.FAILED) {
-
+        if (!ACTIVE_OR_FINISHED_STATUSES.contains(experiment.getStatus())) {
             logger.info("Marking Experiment {} as IN_PROGRESS", experimentId);
             experiment.setStatus(ExperimentStatus.IN_PROGRESS);
             if (experiment.getStartedAt() == null) {
@@ -148,7 +151,10 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             return;
         }
 
-        // Calculate statistics
+        completeExperiment(experiment, parts);
+    }
+
+    private void completeExperiment(Experiment experiment, Set<ExperimentPart> parts) {
         long totalCount = parts.size();
         long completedCount = parts.stream()
                 .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
@@ -157,21 +163,24 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
                 .filter(part -> part.getStatus() == ExperimentPartStatus.FAILED)
                 .count();
 
-        ExperimentStatus finalStatus;
-        if (completedCount == totalCount) {
-            finalStatus = ExperimentStatus.SUCCESS;
-        } else if (completedCount > 0) {
-            finalStatus = ExperimentStatus.PARTIAL_SUCCESS;
-        } else {
-            finalStatus = ExperimentStatus.FAILED;
-        }
+        ExperimentStatus finalStatus = determineFinalStatus(totalCount, completedCount);
 
         experiment.setStatus(finalStatus);
         experiment.setFinishedAt(OffsetDateTime.now());
         experimentRepository.save(experiment);
 
         logger.info("Experiment {} finished with status {} (Completed: {}, Failed: {}, Total: {})",
-                experimentId, finalStatus, completedCount, failedCount, totalCount);
+                experiment.getId(), finalStatus, completedCount, failedCount, totalCount);
+    }
+
+    private ExperimentStatus determineFinalStatus(long totalCount, long completedCount) {
+        if (completedCount == totalCount) {
+            return ExperimentStatus.SUCCESS;
+        } else if (completedCount > 0) {
+            return ExperimentStatus.PARTIAL_SUCCESS;
+        } else {
+            return ExperimentStatus.FAILED;
+        }
     }
 
     @Transactional
