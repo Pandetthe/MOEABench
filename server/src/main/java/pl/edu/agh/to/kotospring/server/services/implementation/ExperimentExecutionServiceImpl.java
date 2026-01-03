@@ -47,10 +47,10 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             Indicators.IndicatorValues indicatorValues = indicators.apply(result);
 
             experimentStatusService.markPartAsCompleted(partId, indicatorValues, result);
-            logger.info("Finished execution of ExperimentPart ID: {}", partId);
+            logger.info("Finished execution of ExperimentPart ID {}", partId);
 
         } catch (Exception e) {
-            logger.error("Error executing ExperimentPart ID: {}", partId, e);
+            logger.error("Error executing ExperimentPart ID {}", partId, e);
             experimentStatusService.markPartAsFailed(partId, e.getMessage());
         }
     }
