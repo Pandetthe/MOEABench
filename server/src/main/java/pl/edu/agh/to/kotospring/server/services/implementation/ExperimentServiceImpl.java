@@ -14,18 +14,18 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
-import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
-import pl.edu.agh.to.kotospring.server.services.interfaces.*;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
-import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
+import pl.edu.agh.to.kotospring.server.services.interfaces.*;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,33 +55,45 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional
-    public CreateExperimentResponse createExperiment(CreateExperimentRequest request) {
-        logger.debug("Creating new experiment; partsCount={}", request.size());
-        List<Pair<ExperimentPart, QueueData>> experimentParts = request.stream()
-                .map(this::createExperimentPart)
-                .toList();
+    public Experiment createExperiment(CreateExperimentRequest request) {
+        logger.info("Received request to create new experiment with {} parts", request.size());
 
-        List<ExperimentPart> experimentPartList = experimentParts.stream()
-                .map(Pair::getFirst)
-                .collect(Collectors.toList());
+        try {
+            List<Pair<ExperimentPart, QueueData>> experimentParts = request.stream()
+                    .map(this::createExperimentPart)
+                    .toList();
 
-        List<QueueData> queueDataList = experimentParts.stream()
-                .map(Pair::getSecond)
-                .toList();
-        Experiment experiment = new Experiment(OffsetDateTime.now(), experimentPartList);
-        experimentRepository.saveAndFlush(experiment);
+            List<ExperimentPart> experimentPartList = experimentParts.stream()
+                    .map(Pair::getFirst)
+                    .collect(Collectors.toList());
 
-        for (int i = 0; i < experimentPartList.size(); i++) {
-            ExperimentPart savedPart = experimentPartList.get(i);
-            QueueData queueData = queueDataList.get(i);
-            queueData.setExperimentPartId(savedPart.getId());
-            executionService.enqueue(queueData);
+            List<QueueData> queueDataList = experimentParts.stream()
+                    .map(Pair::getSecond)
+                    .toList();
+
+            Experiment experiment = new Experiment(OffsetDateTime.now(), experimentPartList);
+            experimentRepository.saveAndFlush(experiment);
+            logger.debug("Experiment entity saved with ID {}", experiment.getId());
+
+            for (int i = 0; i < experimentPartList.size(); i++) {
+                ExperimentPart savedPart = experimentPartList.get(i);
+                QueueData queueData = queueDataList.get(i);
+                queueData.setExperimentPartId(savedPart.getId());
+                executionService.enqueue(queueData);
+            }
+
+            logger.info("Successfully created and queued new experiment ID {}", experiment.getId());
+            return experiment;
+
+        } catch (Exception e) {
+            logger.error("Failed to create experiment", e);
+            throw e;
         }
-        logger.info("Successfully created and queued new experiment id={}", experiment.getId());
-        return new CreateExperimentResponse(experiment.getId());
     }
 
     private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentRequestData partRequest) {
+        logger.debug("Preparing ExperimentPart: Problem={}, Algorithm={}", partRequest.problem(), partRequest.algorithm());
+
         String problemName = partRequest.problem();
         String algorithmName = partRequest.algorithm();
         var algorithmParameters = algorithmRegistry.createTypedProperties(partRequest.algorithmParameters());
@@ -89,11 +101,20 @@ public class ExperimentServiceImpl implements ExperimentService {
         int budget = partRequest.budget();
 
         Problem problem = problemRegistry.getProblem(problemName)
-                .orElseThrow(() -> new ProblemNotFoundException(problemName));
+                .orElseThrow(() -> {
+                    logger.info("Problem not found: {}", problemName);
+                    return new ProblemNotFoundException(problemName);
+                });
         NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName)
-                .orElseThrow(() -> new ProblemNotFoundException(problemName));
+                .orElseThrow(() -> {
+                    logger.info("Reference set for problem not found: {}", problemName);
+                    return new ProblemNotFoundException(problemName);
+                });
         Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem)
-                .orElseThrow(() -> new AlgorithmNotFoundException(algorithmName));
+                .orElseThrow(() -> {
+                    logger.info("Algorithm not found: {}", algorithmName);
+                    return new AlgorithmNotFoundException(algorithmName);
+                });
         Indicators indicatorsObj = indicatorRegistry.getIndicators(indicators, problem, referenceSet);
 
         List<ExperimentPartAlgorithmParameter> algorithmParameterEntities = new ArrayList<>(algorithmParameters.size());
@@ -121,134 +142,51 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public GetExperimentsResponse getExperiments() {
-        return experimentRepository.findAll()
-                .stream()
-                .map(experiment -> new GetExperimentsResponseData(
-                        experiment.getId(),
-                        experiment.getStatus(),
-                        experiment.getQueuedAt(),
-                        experiment.getStartedAt(),
-                        experiment.getFinishedAt()
-                ))
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toList(),
-                        GetExperimentsResponse::new
-                ));
+    public List<Experiment> getExperiments() {
+        logger.debug("Fetching all experiments");
+        return experimentRepository.findAll();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<GetExperimentResponse> getExperiment(long id) {
-        return experimentRepository.findWithPartsById(id)
-                .map(experiment -> new GetExperimentResponse(
-                        experiment.getStatus(),
-                        experiment.getQueuedAt(),
-                        experiment.getStartedAt(),
-                        experiment.getFinishedAt(),
-                        experiment.getParts().stream().map(part -> new GetExperimentResponseData(
-                                part.getId(),
-                                part.getStatus(),
-                                part.getErrorMessage(),
-                                part.getProblem(),
-                                part.getAlgorithm(),
-                                part.getBudget(),
-                                part.getParameters().stream().collect(Collectors.toMap(
-                                        ExperimentPartAlgorithmParameter::getKey,
-                                        ExperimentPartAlgorithmParameter::getValue,
-                                        (existing, replacement) -> replacement,
-                                        HashMap::new)),
-                                new HashSet<>(part.getIndicators().stream().map(ExperimentPartIndicator::getName).toList()),
-                                part.getStartedAt(),
-                                part.getFinishedAt()
-                        )).toList()
-                ));
+    public Optional<Experiment> getExperiment(long id) {
+        logger.debug("Fetching details for experiment ID {}", id);
+        return experimentRepository.findWithPartsById(id);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<GetExperimentStatusResponse> getExperimentStatus(long id) {
-        return experimentRepository.findById(id)
-                .map(experiment -> new GetExperimentStatusResponse(
-                        experiment.getStatus()
-                ));
+    public Optional<Experiment> getExperimentStatus(long id) {
+        logger.debug("Fetching status for experiment ID {}", id);
+        return experimentRepository.findById(id);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<GetExperimentPartStatusResponse> getExperimentStatus(long id, long partId) {
-        return experimentPartRepository.findByExperimentIdAndId(id, partId)
-                .map(part -> new GetExperimentPartStatusResponse(
-                        part.getStatus(),
-                        part.getErrorMessage()
-                ));
+    public Optional<ExperimentPart> getExperimentPart(long id, long partId) {
+        logger.debug("Fetching details for experiment part ID {} (Experiment ID {})", partId, id);
+        return experimentPartRepository.findByExperimentIdAndId(id, partId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<GetExperimentResultResponse> getExperimentResult(long id) {
-        return experimentRepository.findWithFullSolutionById(id)
-                .map(experiment ->
-                        experiment.getParts().stream()
-                                .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
-                                .map(part ->
-                                        new GetExperimentResultResponseData(
-                                                part.getId(),
-                                                part.getSolutions().stream()
-                                                        .map(solution -> new AlgorithmResult(
-                                                                solution.getVariables(),
-                                                                solution.getObjectives(),
-                                                                solution.getConstraints()
-                                                        ))
-                                                        .collect(Collectors.toList()),
-                                                part.getIndicators().stream()
-                                                        .collect(Collectors.toMap(
-                                                                ExperimentPartIndicator::getName,
-                                                                ExperimentPartIndicator::getValue
-                                                        ))
-                                        )
-                                )
-                                .collect(Collectors.collectingAndThen(
-                                        Collectors.toList(),
-                                        GetExperimentResultResponse::new
-                                ))
-                );
-
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<GetExperimentPartResultResponse> getExperimentResult(long id, long partId) {
-        return experimentPartRepository.findWithFullSolutionById(id, partId)
-                .map(part -> {
-                    if (part.getStatus() != ExperimentPartStatus.COMPLETED) {
-                        throw new NotFoundException();
-                    }
-                    List<AlgorithmResult> results = part.getSolutions().stream()
-                            .map(solution -> new AlgorithmResult(
-                                    solution.getVariables(),
-                                    solution.getObjectives(),
-                                    solution.getConstraints()
-                            ))
-                            .collect(Collectors.toList());
-
-                    Map<String, Double> indicatorsValues = part.getIndicators().stream()
-                            .collect(Collectors.toMap(
-                                    ExperimentPartIndicator::getName,
-                                    ExperimentPartIndicator::getValue
-                            ));
-
-                    return new GetExperimentPartResultResponse(results, indicatorsValues);
-                });
+    public Optional<Experiment> getExperimentResult(long id) {
+        logger.debug("Fetching results for experiment ID {}", id);
+        return experimentRepository.findWithFullSolutionById(id);
     }
 
     @Override
     @Transactional
     public boolean deleteExperiment(long id) {
-        if(experimentRepository.existsById(id)){
+        logger.debug("Attempting to delete experiment ID {}", id);
+
+        if (experimentRepository.existsById(id)) {
             experimentRepository.deleteById(id);
+            logger.info("Experiment ID {} deleted successfully", id);
             return true;
         }
+
+        logger.info("Failed to delete experiment ID {}: Not found", id);
         return false;
     }
 }
