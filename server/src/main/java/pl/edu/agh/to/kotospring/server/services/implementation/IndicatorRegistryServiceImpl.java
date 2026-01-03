@@ -9,16 +9,15 @@ import pl.edu.agh.to.kotospring.server.exceptions.IndicatorNotFoundException;
 import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public final class IndicatorRegistryServiceImpl implements IndicatorRegistryService {
     @Override
     public Set<String> getAllRegisteredIndicators() {
-        Set<String> result = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-        for (StandardIndicator indicator : StandardIndicator.values()) {
-            result.add(indicator.name());
-        }
-        return result;
+        return Arrays.stream(StandardIndicator.values())
+                .map(Enum::name)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER)));
     }
 
     @Override
@@ -31,18 +30,24 @@ public final class IndicatorRegistryServiceImpl implements IndicatorRegistryServ
     @Override
     public Indicators getIndicators(Set<String> indicatorNames, Problem problem, NondominatedPopulation referenceSet)
             throws IndicatorNotFoundException {
-        EnumSet<StandardIndicator> indicators = EnumSet.noneOf(StandardIndicator.class);
-        Set<String> invalid = new HashSet<>();
-        for (String name : indicatorNames) {
-            try {
-                indicators.add(StandardIndicator.valueOf(name));
-            } catch (IllegalArgumentException ex) {
-                invalid.add(name);
-            }
-        }
+        Set<String> invalid = indicatorNames.stream()
+                .filter(name -> !isValidIndicator(name))
+                .collect(Collectors.toSet());
         if (!invalid.isEmpty()) {
             throw new IndicatorNotFoundException(invalid);
         }
+        EnumSet<StandardIndicator> indicators = indicatorNames.stream()
+                .map(StandardIndicator::valueOf)
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(StandardIndicator.class)));
         return getIndicators(indicators, problem, referenceSet);
+    }
+
+    private boolean isValidIndicator(String name) {
+        try {
+            StandardIndicator.valueOf(name);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 }

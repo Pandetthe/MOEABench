@@ -13,7 +13,9 @@ import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
+import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
+import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
@@ -87,9 +89,12 @@ public class ExperimentServiceImpl implements ExperimentService {
         var indicators = partRequest.indicators();
         int budget = partRequest.budget();
 
-        Problem problem = problemRegistry.getProblem(problemName);
-        NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName);
-        Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem);
+        Problem problem = problemRegistry.getProblem(problemName)
+                .orElseThrow(() -> new ProblemNotFoundException(problemName));
+        NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName)
+                .orElseThrow(() -> new ProblemNotFoundException(problemName));
+        Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem)
+                .orElseThrow(() -> new AlgorithmNotFoundException(algorithmName));
         Indicators indicatorsObj = indicatorRegistry.getIndicators(indicators, problem, referenceSet);
 
         List<ExperimentPartAlgorithmParameter> algorithmParameterEntities = new ArrayList<>(algorithmParameters.size());
