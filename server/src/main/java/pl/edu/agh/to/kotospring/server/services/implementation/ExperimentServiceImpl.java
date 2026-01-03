@@ -18,11 +18,8 @@ import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
-import pl.edu.agh.to.kotospring.server.services.interfaces.AlgorithmRegistryService;
+import pl.edu.agh.to.kotospring.server.services.interfaces.*;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
-import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
-import pl.edu.agh.to.kotospring.server.services.interfaces.IndicatorRegistryService;
-import pl.edu.agh.to.kotospring.server.services.interfaces.ProblemRegistryService;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
@@ -40,12 +37,14 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final IndicatorRegistryService indicatorRegistry;
     private final ExperimentRepository experimentRepository;
     private final ExperimentPartRepository experimentPartRepository;
-    private final ExperimentExecutionServiceImpl executionService;
+    private final ExperimentExecutionService executionService;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
                                  AlgorithmRegistryService algorithmRegistry,
                                  IndicatorRegistryService indicatorRegistry,
-                                 ExperimentRepository experimentRepository, ExperimentPartRepository experimentPartRepository, ExperimentExecutionServiceImpl executionService) {
+                                 ExperimentRepository experimentRepository,
+                                 ExperimentPartRepository experimentPartRepository,
+                                 ExperimentExecutionService executionService) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
