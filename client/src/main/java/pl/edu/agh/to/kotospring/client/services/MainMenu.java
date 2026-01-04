@@ -21,6 +21,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOpenSelectedItemEvent;
 import pl.edu.agh.to.kotospring.client.views.ScenarioButtonCell;
+import pl.edu.agh.to.kotospring.client.views.UniversalButtonCell;
 
 public class MainMenu {
 
@@ -118,7 +119,7 @@ public class MainMenu {
         ui.configure(scenarios);
         scenarios.setShowBorder(false);
         scenarios.setRowHeight(3);
-        scenarios.setCellFactory((list, item) -> new ScenarioButtonCell(item));
+        scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         return scenarios;
     }
 
