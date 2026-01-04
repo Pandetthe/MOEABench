@@ -13,6 +13,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.experiments.ExperimentAction;
 import pl.edu.agh.to.kotospring.client.views.*;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOpenSelectedItemEvent;
+import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 import java.util.ArrayList;
 import java.util.List;

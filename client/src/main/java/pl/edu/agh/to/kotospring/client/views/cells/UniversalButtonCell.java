@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.client.views;
+package pl.edu.agh.to.kotospring.client.views.cells;
 
 import org.springframework.shell.component.view.control.cell.AbstractListCell;
 import org.springframework.shell.component.view.screen.Screen;

@@ -6,6 +6,7 @@ import org.springframework.shell.component.view.control.GridView;
 import org.springframework.shell.component.view.control.InputView;
 import org.springframework.shell.component.view.event.EventLoop;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,10 +18,8 @@ public class InputForm extends GridView {
 
     private final static ParameterizedTypeReference<ResizingListView.ResizingListViewOpenSelectedItemEvent<ExperimentOption>> BUTTON_EVENT_TYPE
             = new ParameterizedTypeReference<>() {};
-
     private final TerminalUI ui;
     private final Map<String, InputView> inputs = new LinkedHashMap<>();
-
     private int currentRow = 1;
 
     public InputForm(TerminalUI ui, String title) {
@@ -68,7 +67,6 @@ public class InputForm extends GridView {
         EventLoop loop = ui.getEventLoop();
         loop.onDestroy(loop.viewEvents(BUTTON_EVENT_TYPE, submitBtn)
                 .subscribe(event -> event.args().item().action().run()));
-
         setRowSize(currentRow, 3);
 
         addItem(submitBtn, currentRow, 1, 1, 1, 0, 0);

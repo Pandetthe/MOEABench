@@ -1,13 +1,12 @@
-package pl.edu.agh.to.kotospring.client.views;
+package pl.edu.agh.to.kotospring.client.views.cells;
 
 import org.springframework.shell.component.view.control.cell.AbstractListCell;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
 
-public class SimpleTextCell extends AbstractListCell<ExperimentOption> {
+public class CenteredCell extends AbstractListCell<String> {
 
-    public SimpleTextCell(ExperimentOption item) {
+    public CenteredCell(String item) {
         super(item);
     }
 
@@ -23,7 +22,17 @@ public class SimpleTextCell extends AbstractListCell<ExperimentOption> {
     @Override
     protected void drawContent(Screen screen) {
         Rectangle rect = getRect();
-        String text = getItem().name();
+        Screen.Writer writer = screen.writerBuilder()
+                .style(getStyle())
+                .color(getForegroundColor())
+                .build();
+
+        String text = getItem();
+        if (text == null) text = "";
+
+        int freeSpace = rect.width() - text.length();
+        int startX = rect.x() + Math.max(0, freeSpace / 2);
+        int startY = rect.y();
 
         if (isSelected()) {
             int bgColor = resolveThemeBackground(getBackgroundStyle(), getBackgroundColor(), -1);
@@ -31,10 +40,6 @@ public class SimpleTextCell extends AbstractListCell<ExperimentOption> {
                 screen.writerBuilder().build().background(rect, bgColor);
             }
         }
-        screen.writerBuilder()
-                .style(getStyle())
-                .color(getForegroundColor())
-                .build()
-                .text(" " + text, rect.x(), rect.y());
+        writer.text(text, startX, startY);
     }
 }

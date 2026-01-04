@@ -2,6 +2,7 @@ package pl.edu.agh.to.kotospring.client.views;
 
 import org.springframework.shell.component.view.control.GridView;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.views.cells.SimpleTextCell;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +17,7 @@ public class SimpleTableView extends GridView {
 
         setTitle("Results");
         setShowBorder(true);
-        setRowSize(0, 2);
+        setRowSize(0, 1);
         setColumnSize(0);
 
         List<ExperimentOption> rows = new ArrayList<>();
@@ -51,7 +52,12 @@ public class SimpleTableView extends GridView {
             if (cell.length() > width) {
                 cell = cell.substring(0, Math.max(0, width - 3)) + "...";
             }
+            if (i != rowData.size() - 1) {
             sb.append(String.format("%-" + width + "s", cell)).append(" | ");
+            }
+            else {
+                sb.append(String.format("%-" + width + "s", cell));
+            }
         }
         return sb.toString();
     }

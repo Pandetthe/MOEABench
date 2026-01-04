@@ -20,8 +20,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOpenSelectedItemEvent;
-import pl.edu.agh.to.kotospring.client.views.ScenarioButtonCell;
-import pl.edu.agh.to.kotospring.client.views.UniversalButtonCell;
+import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 public class MainMenu {
 

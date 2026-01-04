@@ -1,12 +1,12 @@
 package pl.edu.agh.to.kotospring.client.scenarios;
 
-import org.springframework.shell.component.view.control.BoxView;
 import org.springframework.shell.component.view.control.ListView;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.geom.HorizontalAlign;
 import pl.edu.agh.to.kotospring.client.api.RegistryClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
+import pl.edu.agh.to.kotospring.client.views.cells.CenteredCell;
 
 import java.util.List;
 
@@ -24,6 +24,7 @@ public class AlgorithmScenario extends Scenario {
         ListView<String> box = new ListView<>();
         configure(box);
         List<String> algorithms = registryClient.getAlgorithms();
+        box.setCellFactory((list, item) -> new CenteredCell(item));
         box.setItems(algorithms);
         box.setTitle("Algorithms");
         box.setShowBorder(true);

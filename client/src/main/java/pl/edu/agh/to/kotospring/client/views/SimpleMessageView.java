@@ -2,6 +2,7 @@ package pl.edu.agh.to.kotospring.client.views;
 
 import org.springframework.shell.component.view.control.GridView;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.views.cells.SimpleTextCell;
 
 import java.util.ArrayList;
 import java.util.List;
