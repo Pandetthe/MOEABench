@@ -1,9 +1,11 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
@@ -17,11 +19,14 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResult
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResultResponseData;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentStatusResponse;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
 public class GetExperimentResultAction implements ExperimentAction {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Override
     public String getMenuLabelAndTitle() {
@@ -38,9 +43,10 @@ public class GetExperimentResultAction implements ExperimentAction {
     public View execute(Map<String, String> data, ExperimentClient client) {
         try {
             long id = Long.parseLong(data.get("id"));
-            Optional<Long> partId = data.get("partId").isBlank()
+            String partIdRaw = data.getOrDefault("partId", "");
+            Optional<Long> partId = partIdRaw.isBlank()
                     ? Optional.empty()
-                    : Optional.of(Long.parseLong(data.get("partId")));
+                    : Optional.of(Long.parseLong(partIdRaw));
 
             if (partId.isPresent()) {
                 GetExperimentPartStatusResponse st = client.getExperimentPartStatus(id, partId.get());
@@ -83,12 +89,50 @@ public class GetExperimentResultAction implements ExperimentAction {
             GetExperimentResultResponse resp = client.getExperimentResult(id);
             return wholeExperimentAsOneTableIndicatorsLast(resp);
 
-    } catch (Exception e) {
-        return new SimpleMessageView("Error", "An unexpected error occurred kocham piwo: " + e.getMessage());
+        } catch (RestClientResponseException e) {
+            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), e.getResponseBodyAsString());
+        } catch (WebClientResponseException e) {
+            String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
+            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
+        } catch (NumberFormatException e) {
+            return new SimpleMessageView("Invalid input", "ID and Part ID must be valid integers.");
+        } catch (Exception e) {
+            return new SimpleMessageView(
+                    "Error",
+                    "Unexpected error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
+            );
+        }
+    }
 
-    }}
+    private View httpErrorView(int status, String statusText, String body) {
+        String msg = extractServerMessage(body);
 
+        String title = "HTTP " + status + (statusText == null || statusText.isBlank() ? "" : " " + statusText);
+        if (msg == null || msg.isBlank()) {
+            msg = "Request failed (no details returned by server).";
+        }
+        return new SimpleMessageView(title, msg);
+    }
 
+    private String extractServerMessage(String body) {
+        if (body == null) return "";
+        String trimmed = body.trim();
+        if (trimmed.isEmpty()) return "";
+
+        if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+            return trimmed;
+        }
+
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(trimmed);
+            if (node.hasNonNull("message")) return node.get("message").asText();
+            if (node.hasNonNull("error")) return node.get("error").asText();
+            if (node.hasNonNull("detail")) return node.get("detail").asText();
+            return trimmed;
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+    }
 
     private View wholeExperimentAsOneTableIndicatorsLast(GetExperimentResultResponse resp) {
         AlgorithmResult firstSol = firstSolution(resp);
@@ -117,7 +161,6 @@ public class GetExperimentResultAction implements ExperimentAction {
 
             List<AlgorithmResult> results = part.result();
             if (results == null || results.isEmpty()) {
-
                 List<String> row = new ArrayList<>();
                 row.add(String.valueOf(partId));
                 row.add("No solutions");
@@ -157,7 +200,6 @@ public class GetExperimentResultAction implements ExperimentAction {
 
         List<Integer> colWidths = widths(headers, rows);
         SimpleTableView table = new SimpleTableView(headers, rows, colWidths);
-
 
         table.enableColumnPaging(1, 7);
         table.setShowFullNumericCells(true);
