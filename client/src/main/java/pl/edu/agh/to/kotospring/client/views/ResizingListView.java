@@ -11,6 +11,7 @@ import org.springframework.shell.component.view.event.MouseEvent;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
 import org.springframework.util.Assert;
+import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
 
 public class ResizingListView<T> extends BoxView {
     private final List<T> items;
@@ -22,6 +23,8 @@ public class ResizingListView<T> extends BoxView {
     private BiFunction<ResizingListView<T>, T, ListCell<T>> factory;
 
     private int rowHeight = 1;
+
+    private boolean autoRunOnOpen = false;
 
     public ResizingListView() {
         this(ListView.ItemStyle.NOCHECK);
@@ -47,6 +50,10 @@ public class ResizingListView<T> extends BoxView {
         return this.itemStyle;
     }
 
+    public void setAutoRunOnOpen(boolean autoRunOnOpen) {
+        this.autoRunOnOpen = autoRunOnOpen;
+    }
+
     protected void initInternal() {
         super.initInternal();
         this.registerViewCommand(ViewCommand.LINE_UP, this::up);
@@ -62,7 +69,7 @@ public class ResizingListView<T> extends BoxView {
 
     private void updateCells() {
         this.cells.clear();
-        for(T i : this.items) {
+        for (T i : this.items) {
             ListCell<T> c = this.factory.apply(this, i);
             c.setItemStyle(this.getItemStyle());
             this.cells.add(c);
@@ -93,7 +100,7 @@ public class ResizingListView<T> extends BoxView {
             int selectedBackgroundColor = this.resolveThemeBackground("style-highlight", -1, -1);
             int i = 0;
 
-            for(ListCell<T> c : this.cells) {
+            for (ListCell<T> c : this.cells) {
                 if (i < this.start) {
                     ++i;
                 } else {
@@ -163,9 +170,9 @@ public class ResizingListView<T> extends BoxView {
     private void scrollIndex(int step) {
         if (this.start >= 0 || this.pos >= 0) {
             if (step < 0) {
-                for(int i = step; i < 0; ++i) this.scrollIndex(true);
+                for (int i = step; i < 0; ++i) this.scrollIndex(true);
             } else if (step > 0) {
-                for(int i = step; i > 0; --i) this.scrollIndex(false);
+                for (int i = step; i > 0; --i) this.scrollIndex(false);
             }
         }
     }
@@ -183,13 +190,24 @@ public class ResizingListView<T> extends BoxView {
 
     private void enter() {
         if (this.itemStyle == ListView.ItemStyle.NOCHECK) {
-            this.dispatch(ShellMessageBuilder.ofView(this,
-                    ResizingListViewOpenSelectedItemEvent.of(this, this.selectedItem())));
+            openSelected();
         }
     }
 
     private void space() {
         updateSelectionStates();
+    }
+
+    private void openSelected() {
+        T item = selectedItem();
+        if (item == null) return;
+
+        if (autoRunOnOpen && item instanceof ExperimentOption opt && opt.action() != null) {
+            opt.action().run();
+            return;
+        }
+        this.dispatch(ShellMessageBuilder.ofView(this,
+                ResizingListViewOpenSelectedItemEvent.of(this, item)));
     }
 
     private void updateSelectionStates() {
@@ -202,7 +220,7 @@ public class ResizingListView<T> extends BoxView {
             this.selected.add(active);
         }
         ListIterator<ListCell<T>> iter = this.cells.listIterator();
-        while(iter.hasNext()) {
+        while (iter.hasNext()) {
             int index = iter.nextIndex();
             ListCell<T> c = iter.next();
             c.setSelected(this.selected.contains(index));
@@ -215,8 +233,7 @@ public class ResizingListView<T> extends BoxView {
         if (active >= 0 && active < this.items.size()) {
             this.pos = index;
             if (this.itemStyle == ListView.ItemStyle.NOCHECK) {
-                this.dispatch(ShellMessageBuilder.ofView(this,
-                        ResizingListViewOpenSelectedItemEvent.of(this, this.selectedItem())));
+                openSelected();
                 return;
             }
         }
