@@ -215,6 +215,8 @@ public class ResizingListView<T> extends BoxView {
         if (active >= 0 && active < this.items.size()) {
             this.pos = index;
             if (this.itemStyle == ListView.ItemStyle.NOCHECK) {
+                this.dispatch(ShellMessageBuilder.ofView(this,
+                        ResizingListViewOpenSelectedItemEvent.of(this, this.selectedItem())));
                 return;
             }
         }
