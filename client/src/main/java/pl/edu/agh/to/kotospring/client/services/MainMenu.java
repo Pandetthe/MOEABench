@@ -1,9 +1,10 @@
 package pl.edu.agh.to.kotospring.client.services;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.shell.component.message.ShellMessageBuilder;
 import org.springframework.shell.component.view.TerminalUI;
@@ -23,14 +24,11 @@ import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOp
 import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 public class MainMenu {
-
-    private final static ParameterizedTypeReference<ResizingListViewOpenSelectedItemEvent<ScenarioData>> CUSTOM_LIST_TYPEREF
-            = new ParameterizedTypeReference<>() {};
-
     private final List<ScenarioData> scenarioList = new ArrayList<>();
     private final TerminalUIBuilder terminalUIBuilder;
 
-    private ScenarioContext currentScenarioContext = null;
+    private final Deque<ScenarioContext> contextStack = new ArrayDeque<>();
+
     private TerminalUI ui;
 
     private ResizingListView<ScenarioData> scenariosView;
@@ -61,16 +59,25 @@ public class MainMenu {
     }
 
     private void returnToMenu() {
-        if (currentScenarioContext != null) {
-            currentScenarioContext.stop();
-            currentScenarioContext = null;
-            updateGridContent(scenariosView);
-            ui.setFocus(scenariosView);
+        if (!contextStack.isEmpty()) {
+            ScenarioContext current = contextStack.pop();
+            current.stop();
+
+            if (contextStack.isEmpty()) {
+                updateGridContent(scenariosView);
+                updateStatusBarForMenu();
+                ui.setFocus(scenariosView);
+            } else {
+                ScenarioContext previous = contextStack.peek();
+                updateGridContent(previous.view());
+                updateStatusBarForScenario();
+                ui.setFocus(previous.view());
+            }
         }
     }
 
     private void handleQuitOrReturn() {
-        if (currentScenarioContext != null) {
+        if (!contextStack.isEmpty()) {
             returnToMenu();
         } else {
             requestQuit();
@@ -109,17 +116,32 @@ public class MainMenu {
         mainGrid.setColumnSize(0);
 
         updateGridContent(scenariosView);
+        updateStatusBarForMenu();
 
-        eventLoop.onDestroy(eventLoop.viewEvents(CUSTOM_LIST_TYPEREF, scenariosView)
+        eventLoop.onDestroy(eventLoop.viewEvents(ResizingListViewOpenSelectedItemEvent.class, scenariosView)
                 .subscribe(event -> {
-                    ScenarioContext context = event.args().item().scenario().configure(ui).buildContext();
-                    ui.configure(context.view());
-
-                    updateGridContent(context.view());
-
-                    context.start();
-                    currentScenarioContext = context;
+                    Object item = event.args().item();
+                    if (item instanceof ScenarioData scenarioData) {
+                        Scenario scenario = scenarioData.scenario();
+                        openScenario(scenario);
+                    }
                 }));
+    }
+
+    private void openScenario(Scenario scenario) {
+        scenario.configure(ui);
+        scenario.setNavigationConsumer(this::navigateTo);
+        ScenarioContext context = scenario.buildContext();
+        navigateTo(context);
+    }
+
+    private void navigateTo(ScenarioContext context) {
+        ui.configure(context.view());
+        contextStack.push(context);
+        updateGridContent(context.view());
+        updateStatusBarForScenario();
+        ui.setFocus(context.view());
+        context.start();
     }
 
     private void updateGridContent(View centerView) {
@@ -128,21 +150,32 @@ public class MainMenu {
         mainGrid.addItem(statusBar, 1, 0, 1, 1, 0, 0);
     }
 
+    private void updateStatusBarForMenu() {
+        statusBar.setItems(List.of(
+                StatusItem.of("CTRL-Q Exit", this::requestQuit)
+        ));
+    }
+
+    private void updateStatusBarForScenario() {
+        statusBar.setItems(List.of(
+                StatusItem.of("CTRL-Q Return", this::returnToMenu)
+        ));
+    }
+
     private ResizingListView<ScenarioData> buildScenarioSelector() {
         ResizingListView<ScenarioData> scenarios = new ResizingListView<>();
         ui.configure(scenarios);
+        scenarios.setRowHeight(3);
         scenarios.setTitle("Main menu");
         scenarios.setTitleAlign(HorizontalAlign.CENTER);
         scenarios.setShowBorder(true);
-        scenarios.setRowHeight(3);
+        scenarios.setCenterVertically(true);
         scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         return scenarios;
     }
 
     private StatusBarView buildStatusBar() {
-        StatusBarView statusBar = new StatusBarView(new StatusItem[]{
-                StatusItem.of("CTRL-Q Exit/Return", this::handleQuitOrReturn)
-        });
+        StatusBarView statusBar = new StatusBarView();
         ui.configure(statusBar);
         return statusBar;
     }

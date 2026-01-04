@@ -4,13 +4,13 @@ import org.springframework.shell.component.view.TerminalUI;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.component.view.control.ViewService;
 import org.springframework.shell.component.view.event.EventLoop;
-
+import java.util.function.Consumer;
 
 public abstract class Scenario {
-
     private TerminalUI ui;
     private ViewService viewService;
     private EventLoop eventloop;
+    private Consumer<ScenarioContext> navigationConsumer;
 
     protected ViewService getViewService() {
         return viewService;
@@ -22,6 +22,16 @@ public abstract class Scenario {
 
     protected TerminalUI getTerminalUI() {
         return ui;
+    }
+
+    public void setNavigationConsumer(Consumer<ScenarioContext> navigationConsumer) {
+        this.navigationConsumer = navigationConsumer;
+    }
+
+    protected void navigate(ScenarioContext context) {
+        if (navigationConsumer != null) {
+            navigationConsumer.accept(context);
+        }
     }
 
     public abstract View build();

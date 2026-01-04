@@ -56,6 +56,7 @@ public class ExperimentScenario extends Scenario {
         optionsListView = new ResizingListView<>();
         configure(optionsListView);
         optionsListView.setShowBorder(false);
+        optionsListView.setCenterVertically(true);
         optionsListView.setRowHeight(3);
         optionsListView.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ExperimentOption::name));
         optionsListView.setItems(menuOptions);

@@ -25,6 +25,7 @@ public class ResizingListView<T> extends BoxView {
     private int rowHeight = 1;
 
     private boolean autoRunOnOpen = false;
+    private boolean centerVertically = false;
 
     public ResizingListView() {
         this(ListView.ItemStyle.NOCHECK);
@@ -44,6 +45,10 @@ public class ResizingListView<T> extends BoxView {
 
     public void setRowHeight(int rowHeight) {
         this.rowHeight = rowHeight;
+    }
+
+    public void setCenterVertically(boolean centerVertically) {
+        this.centerVertically = centerVertically;
     }
 
     public ListView.ItemStyle getItemStyle() {
@@ -94,7 +99,8 @@ public class ResizingListView<T> extends BoxView {
     protected void drawInternal(Screen screen) {
         if (this.start > -1 && this.pos > -1) {
             Rectangle rect = this.getInnerRect();
-            int y = rect.y();
+            int y = getStartY(rect);
+
             int selectedStyle = this.resolveThemeStyle("style-highlight", 1);
             int selectedForegroundColor = this.resolveThemeForeground("style-highlight", -1, -1);
             int selectedBackgroundColor = this.resolveThemeBackground("style-highlight", -1, -1);
@@ -127,6 +133,17 @@ public class ResizingListView<T> extends BoxView {
             }
         }
         super.drawInternal(screen);
+    }
+
+    private int getStartY(Rectangle rect) {
+        int y = rect.y();
+        if (centerVertically) {
+            int contentHeight = items.size() * rowHeight;
+            if (contentHeight < rect.height()) {
+                y += (rect.height() - contentHeight) / 2;
+            }
+        }
+        return y;
     }
 
     public void setCellFactory(BiFunction<ResizingListView<T>, T, ListCell<T>> factory) {
@@ -228,8 +245,16 @@ public class ResizingListView<T> extends BoxView {
     }
 
     private void click(MouseEvent event) {
-        int index = (event.y() - this.getInnerRect().y()) / rowHeight;
+        Rectangle rect = this.getInnerRect();
+        int yStart = getStartY(rect);
+
+        if (event.y() < yStart) {
+            return;
+        }
+
+        int index = (event.y() - yStart) / rowHeight;
         int active = this.start + index;
+
         if (active >= 0 && active < this.items.size()) {
             this.pos = index;
             if (this.itemStyle == ListView.ItemStyle.NOCHECK) {

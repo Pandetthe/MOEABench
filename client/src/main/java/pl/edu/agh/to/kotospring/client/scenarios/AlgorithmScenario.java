@@ -1,18 +1,17 @@
 package pl.edu.agh.to.kotospring.client.scenarios;
 
-import org.springframework.shell.component.view.control.ListView;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.geom.HorizontalAlign;
 import pl.edu.agh.to.kotospring.client.api.RegistryClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
+import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.cells.CenteredCell;
 
 import java.util.List;
 
 @ScenarioComponent(name = "Algorithms")
 public class AlgorithmScenario extends Scenario {
-
     private final RegistryClient registryClient;
 
     public AlgorithmScenario(RegistryClient registryClient) {
@@ -21,14 +20,15 @@ public class AlgorithmScenario extends Scenario {
 
     @Override
     public View build() {
-        ListView<String> box = new ListView<>();
-        configure(box);
-        List<String> algorithms = registryClient.getAlgorithms();
-        box.setCellFactory((list, item) -> new CenteredCell(item));
-        box.setItems(algorithms);
-        box.setTitle("Algorithms");
-        box.setShowBorder(true);
-        box.setTitleAlign(HorizontalAlign.CENTER);
-        return box;
+        ResizingListView<String> listView = new ResizingListView<>();
+        configure(listView);
+        List<String> indicators = registryClient.getAlgorithms();
+        listView.setTitle("Algorithms");
+        listView.setShowBorder(true);
+        listView.setTitleAlign(HorizontalAlign.CENTER);
+        listView.setCenterVertically(true);
+        listView.setCellFactory((list, item) -> new CenteredCell(item));
+        listView.setItems(indicators);
+        return listView;
     }
 }
