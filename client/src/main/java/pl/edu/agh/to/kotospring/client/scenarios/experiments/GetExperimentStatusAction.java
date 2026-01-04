@@ -38,7 +38,7 @@ public class GetExperimentStatusAction implements ExperimentAction {
             System.out.println("Experiment status: " + response.status());
 
             List<String> headers = List.of("ID", "Status");
-            List<Integer> widths = List.of(5, 10);
+            List<Integer> widths = List.of(8, 20);
 
             List<List<String>> rows = new ArrayList<>();
             List<String> row = new ArrayList<>();
@@ -55,7 +55,7 @@ public class GetExperimentStatusAction implements ExperimentAction {
             System.out.println("Experiment part status: " + response.status());
 
             List<String> headers = List.of("ID", "Part ID", "Status", "Error Message");
-            List<Integer> widths = List.of(5, 5, 10, 30);
+            List<Integer> widths = List.of(8, 10, 20, 30);
 
             List<List<String>> rows = new ArrayList<>();
             List<String> row = new ArrayList<>();

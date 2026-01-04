@@ -30,7 +30,7 @@ public class GetExperimentAction implements ExperimentAction {
         GetExperimentResponse response = client.getExperiment(id);
 
         List<String> headers = List.of("ID", "Status", "Algorithm", "Problem", "Budget", "Error");
-        List<Integer> widths = List.of(5, 10, 20, 20, 10, 18);
+        List<Integer> widths = List.of(5, 10, 14, 14, 10, 40);
 
         List<List<String>> rows = new ArrayList<>();
 

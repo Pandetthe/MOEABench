@@ -27,7 +27,7 @@ public class GetExperimentsAction implements ExperimentAction {
     public View execute(Map<String, String> data, ExperimentClient client) {
         GetExperimentsResponse response = client.getExperiments();
         List<String> headers = List.of("ID", "Status", "Queued", "Started", "Finished");
-        List<Integer> widths = List.of(5, 10, 18, 18, 18);
+        List<Integer> widths = List.of(5, 16, 27, 27, 27);
 
         List<List<String>> rows = new ArrayList<>();
 
