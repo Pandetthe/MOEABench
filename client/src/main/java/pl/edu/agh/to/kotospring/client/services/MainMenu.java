@@ -34,8 +34,9 @@ public class MainMenu {
     private TerminalUI ui;
 
     private ResizingListView<ScenarioData> scenariosView;
+    private StatusBarView statusBar;
+    private GridView mainGrid;
 
-    private View rootView;
     private EventLoop eventLoop;
 
     public MainMenu(TerminalUIBuilder terminalUIBuilder, List<Scenario> scenarios) {
@@ -59,73 +60,88 @@ public class MainMenu {
         eventLoop.dispatch(ShellMessageBuilder.ofInterrupt());
     }
 
+    private void returnToMenu() {
+        if (currentScenarioContext != null) {
+            currentScenarioContext.stop();
+            currentScenarioContext = null;
+            updateGridContent(scenariosView);
+            ui.setFocus(scenariosView);
+        }
+    }
+
+    private void handleQuitOrReturn() {
+        if (currentScenarioContext != null) {
+            returnToMenu();
+        } else {
+            requestQuit();
+        }
+    }
+
     public void run() {
         ui = terminalUIBuilder.build();
         eventLoop = ui.getEventLoop();
-        rootView = buildScenarioBrowser(eventLoop, ui);
+
+        initializeLayout();
+
         eventLoop.onDestroy(eventLoop.keyEvents()
                 .doOnNext(m -> {
                     if (m.getPlainKey() == Key.q && m.hasCtrl()) {
-                        if (currentScenarioContext != null) {
-                            currentScenarioContext.stop();
-                            currentScenarioContext = null;
-                            ui.setRoot(rootView, true);
-                            ui.setFocus(scenariosView);
-                        } else {
-                            requestQuit();
-                        }
+                        handleQuitOrReturn();
                     }
                 })
                 .subscribe());
 
-        ui.setRoot(rootView, true);
+        ui.setRoot(mainGrid, true);
         ui.setFocus(scenariosView);
         ui.run();
     }
 
-    private View buildScenarioBrowser(EventLoop eventLoop, TerminalUI component) {
+    private void initializeLayout() {
         scenariosView = buildScenarioSelector();
         scenariosView.setItems(scenarioList);
 
-        StatusBarView statusBar = buildStatusBar(eventLoop);
+        statusBar = buildStatusBar();
 
-        GridView grid = new GridView();
-        grid.setTitle("Main menu");
-        grid.setTitleAlign(HorizontalAlign.CENTER);
-        grid.setShowBorder(true);
-        component.configure(grid);
+        mainGrid = new GridView();
+        ui.configure(mainGrid);
 
-        grid.setRowSize(0, 1);
-        grid.setColumnSize(0);
+        mainGrid.setRowSize(0, 1);
+        mainGrid.setColumnSize(0);
 
-        grid.addItem(scenariosView, 0, 0, 1, 1, 0, 0);
-        grid.addItem(statusBar, 1, 0, 1, 1, 0, 0);
+        updateGridContent(scenariosView);
 
         eventLoop.onDestroy(eventLoop.viewEvents(CUSTOM_LIST_TYPEREF, scenariosView)
                 .subscribe(event -> {
                     ScenarioContext context = event.args().item().scenario().configure(ui).buildContext();
                     ui.configure(context.view());
-                    component.setRoot(context.view(), true);
+
+                    updateGridContent(context.view());
+
                     context.start();
                     currentScenarioContext = context;
                 }));
+    }
 
-        return grid;
+    private void updateGridContent(View centerView) {
+        mainGrid.clearItems();
+        mainGrid.addItem(centerView, 0, 0, 1, 1, 0, 0);
+        mainGrid.addItem(statusBar, 1, 0, 1, 1, 0, 0);
     }
 
     private ResizingListView<ScenarioData> buildScenarioSelector() {
         ResizingListView<ScenarioData> scenarios = new ResizingListView<>();
         ui.configure(scenarios);
-        scenarios.setShowBorder(false);
+        scenarios.setTitle("Main menu");
+        scenarios.setTitleAlign(HorizontalAlign.CENTER);
+        scenarios.setShowBorder(true);
         scenarios.setRowHeight(3);
         scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         return scenarios;
     }
 
-    private StatusBarView buildStatusBar(EventLoop eventLoop) {
-        Runnable quitAction = this::requestQuit;
+    private StatusBarView buildStatusBar() {
         StatusBarView statusBar = new StatusBarView(new StatusItem[]{
-                StatusItem.of("CTRL-Q Exit", quitAction)
+                StatusItem.of("CTRL-Q Exit/Return", this::handleQuitOrReturn)
         });
         ui.configure(statusBar);
         return statusBar;
