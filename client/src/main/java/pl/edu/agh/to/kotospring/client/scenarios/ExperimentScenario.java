@@ -125,10 +125,18 @@ public class ExperimentScenario extends Scenario {
                 getTerminalUI().setRoot(build(), true);
                 onStart();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            getTerminalUI().setRoot(build(), true);
-            onStart();
+        }catch (Exception e) {
+        e.printStackTrace();
+        View err = new SimpleMessageView("Error", e.getMessage() == null ? e.toString() : e.getMessage());
+        getTerminalUI().configure(err);
+        if (err instanceof SimpleMessageView mv) {
+            getTerminalUI().configure(mv.getContentList());
+            getTerminalUI().setRoot(err, true);
+            getTerminalUI().setFocus(mv.getContentList());
+        } else {
+            getTerminalUI().setRoot(err, true);
         }
     }
+
+}
 }
