@@ -1,6 +1,5 @@
 package pl.edu.agh.to.kotospring.client.views;
 
-import org.springframework.shell.component.view.control.GridView;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
 import pl.edu.agh.to.kotospring.client.views.cells.SimpleTextCell;
 
@@ -8,11 +7,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class SimpleTableView extends GridView {
-
-    private final ResizingListView<ExperimentOption> contentList;
+public class SimpleTableView extends ResizingListView<ExperimentOption> {
     private final List<Integer> colWidths;
-
     private final List<String> allHeaders;
     private final List<List<String>> allData;
 
@@ -22,38 +18,31 @@ public class SimpleTableView extends GridView {
     private int colOffset = 0;
 
     private boolean showFullNumericCells = false;
-
     private boolean indicatorsFullOnLastPage = false;
     private int indicatorsLastPageWidth = 80;
 
     public SimpleTableView(List<String> headers, List<List<String>> data, List<Integer> colWidths) {
+        super();
         this.colWidths = colWidths;
-
         this.allHeaders = headers == null ? List.of() : new ArrayList<>(headers);
         this.allData = data == null ? List.of() : new ArrayList<>(data);
 
         setTitle("Results");
         setShowBorder(true);
-        setRowSize(0, 1);
-        setColumnSize(0);
+        setRowHeight(1);
+        setCellFactory((list, item) -> new SimpleTextCell(item));
+        setAutoRunOnOpen(true);
 
-        contentList = new ResizingListView<>();
-        contentList.setShowBorder(false);
-        contentList.setRowHeight(1);
-        contentList.setCellFactory((list, item) -> new SimpleTextCell(item));
-        contentList.setAutoRunOnOpen(true);
-
-        contentList.setItems(buildRowsNoPaging());
-        addItem(contentList, 0, 0, 1, 1, 0, 0);
+        refreshItems(buildRowsNoPaging());
     }
 
-    public ResizingListView<ExperimentOption> getContentList() {
-        return contentList;
+    public SimpleTableView(List<List<String>> data, List<Integer> colWidths) {
+        this(List.of(), data, colWidths);
     }
 
     public void setShowFullNumericCells(boolean enabled) {
         this.showFullNumericCells = enabled;
-        contentList.setItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+        refreshItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
     }
 
     public void enableColumnPaging(int frozenColumns, int pageColumns) {
@@ -61,24 +50,30 @@ public class SimpleTableView extends GridView {
         this.frozenColumns = Math.max(0, frozenColumns);
         this.pageColumns = Math.max(1, pageColumns);
         this.colOffset = 0;
-        contentList.setItems(buildRowsWithPaging());
+        refreshItems(buildRowsWithPaging());
     }
 
     public void setIndicatorsFullOnLastPage(boolean enabled) {
         this.indicatorsFullOnLastPage = enabled;
-        contentList.setItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+        refreshItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
     }
 
     public void setIndicatorsLastPageWidth(int width) {
         this.indicatorsLastPageWidth = Math.max(20, width);
-        contentList.setItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+        refreshItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+    }
+
+    private void refreshItems(List<ExperimentOption> rows) {
+        setItems(rows);
     }
 
     private List<ExperimentOption> buildRowsNoPaging() {
         List<ExperimentOption> rows = new ArrayList<>();
 
-        rows.add(new ExperimentOption(formatRow(allHeaders, colWidths, allHeaders, false), () -> {}));
-        rows.add(new ExperimentOption(createSeparator(allHeaders.size(), colWidths, allHeaders), () -> {}));
+        if (!allHeaders.isEmpty()) {
+            rows.add(new ExperimentOption(formatRow(allHeaders, colWidths, allHeaders, false), () -> {}));
+            rows.add(new ExperimentOption(createSeparator(allHeaders.size(), colWidths, allHeaders), () -> {}));
+        }
 
         for (List<String> rowData : allData) {
             rows.add(new ExperimentOption(formatRow(rowData, colWidths, allHeaders, false), () -> {}));
@@ -128,8 +123,11 @@ public class SimpleTableView extends GridView {
         rows.add(new ExperimentOption("<< Columns", this::pageLeft));
         rows.add(new ExperimentOption("Columns >>", this::pageRight));
 
-        rows.add(new ExperimentOption(formatRow(headers, widths, headers, isLastPage), () -> {}));
-        rows.add(new ExperimentOption(createSeparator(headers.size(), widths, headers), () -> {}));
+        if (!allHeaders.isEmpty()) {
+            rows.add(new ExperimentOption(formatRow(headers, widths, headers, isLastPage), () -> {}));
+            rows.add(new ExperimentOption(createSeparator(headers.size(), widths, headers), () -> {}));
+        }
+
         for (List<String> rowData : data) {
             rows.add(new ExperimentOption(formatRow(rowData, widths, headers, isLastPage), () -> {}));
         }
@@ -148,7 +146,7 @@ public class SimpleTableView extends GridView {
         colOffset = Math.max(0, colOffset - pageColumns);
         colOffset = Math.min(colOffset, maxOffset);
 
-        contentList.setItems(buildRowsWithPaging());
+        refreshItems(buildRowsWithPaging());
     }
 
     private void pageRight() {
@@ -160,7 +158,7 @@ public class SimpleTableView extends GridView {
         int maxOffset = Math.max(0, scrollable - pageColumns);
 
         colOffset = Math.min(maxOffset, colOffset + pageColumns);
-        contentList.setItems(buildRowsWithPaging());
+        refreshItems(buildRowsWithPaging());
     }
 
     private String formatRow(List<String> rowData, List<Integer> widths, List<String> headersForThisRow, boolean isLastPage) {

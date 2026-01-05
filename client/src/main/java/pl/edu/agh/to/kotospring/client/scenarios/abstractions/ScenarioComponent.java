@@ -16,4 +16,6 @@ import org.springframework.stereotype.Indexed;
 @Component
 public @interface ScenarioComponent {
     String name() default "";
+
+    ScenarioType type() default ScenarioType.MAIN_MENU;
 }

@@ -3,92 +3,81 @@ package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.shell.component.view.control.View;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentResponse;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-@Component
-public class CreateExperimentAction implements ExperimentAction {
-
+@ScenarioComponent(name = "Delete experiment", type = ScenarioType.EXPERIMENT_MENU)
+public class RemoveExperimentScenario extends Scenario {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ExperimentClient client;
 
-    @Override
-    public String getMenuLabelAndTitle() {
-        return "Create new Experiment";
+    public RemoveExperimentScenario(ExperimentClient client) {
+        this.client = client;
     }
 
     @Override
-    public void configureInput(InputForm form) {
-        form.addInput("problems", "Problems");
-        form.addInput("algorithms", "Algorithms");
-        form.addInput("indicators", "Indicators");
-        form.addInput("budget", "Budget");
+    public View build() {
+        InputForm inputForm = new InputForm(getTerminalUI(), "Delete Experiment by ID");
+        inputForm.addInput("id", "Experiment ID");
+        inputForm.setSubmitAction("Delete", this::handleDeleteAction);
+        configure(inputForm);
+        inputForm.focusFirstInput();
+        return inputForm;
     }
 
-    @Override
-    public View execute(Map<String, String> data, ExperimentClient client) {
+    private void handleDeleteAction(Map<String, String> data) {
+        View resultView;
         try {
-            List<String> algorithmList = List.of(data.get("algorithms").split(","));
-            List<String> problemList = List.of(data.get("problems").split(","));
-            Set<String> indicatorSet = Set.of(data.get("indicators").split(","));
-            int budget = Integer.parseInt(data.get("budget"));
+            long id = Long.parseLong(data.get("id"));
+            client.deleteExperiment(id);
 
-            CreateExperimentRequest request = new CreateExperimentRequest();
-
-            for (String algorithm : algorithmList) {
-                for (String problem : problemList) {
-                    Map<String, Object> algorithmParameters = Map.of();
-                    CreateExperimentRequestData requestData =
-                            new CreateExperimentRequestData(
-                                    problem.trim(),
-                                    algorithm.trim(),
-                                    algorithmParameters,
-                                    indicatorSet,
-                                    budget
-                            );
-                    request.add(requestData);
-                }
-            }
-
-            CreateExperimentResponse response = client.createExperiment(request);
-
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Success",
-                    "Experiment successfully created with ID: " + response.id()
+                    "Experiment with ID " + id + " has been deleted successfully."
             );
 
         } catch (RestClientResponseException e) {
-            return httpErrorView(
+            resultView = httpErrorView(
                     e.getRawStatusCode(),
                     e.getStatusText(),
                     e.getResponseBodyAsString()
             );
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
+            resultView = httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
         } catch (NumberFormatException e) {
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Invalid input",
-                    "Budget must be a valid integer."
+                    "Experiment ID must be a valid integer."
             );
         } catch (Exception e) {
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Error",
                     "Unexpected error: " +
                             (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
             );
         }
+
+        configure(resultView);
+
+        View finalResultView = resultView;
+        navigate(ScenarioContext.of(resultView, () -> {
+            if (finalResultView instanceof SimpleMessageView mv) {
+                getTerminalUI().setFocus(mv.getContentList());
+            } else {
+                getTerminalUI().setFocus(finalResultView);
+            }
+        }, null));
     }
 
     private View httpErrorView(int status, String statusText, String body) {

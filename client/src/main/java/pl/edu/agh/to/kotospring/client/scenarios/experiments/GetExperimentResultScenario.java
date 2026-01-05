@@ -3,44 +3,50 @@ package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.shell.component.view.control.View;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartResultResponse;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartStatusResponse;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResultResponse;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResultResponseData;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentStatusResponse;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Component
-public class GetExperimentResultAction implements ExperimentAction {
+@ScenarioComponent(name = "Check result", type = ScenarioType.EXPERIMENT_MENU)
+public class GetExperimentResultScenario extends Scenario {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ExperimentClient client;
+    private InputForm inputForm;
 
-    @Override
-    public String getMenuLabelAndTitle() {
-        return "Check experiment (part) result";
+    public GetExperimentResultScenario(ExperimentClient client) {
+        this.client = client;
     }
 
     @Override
-    public void configureInput(InputForm form) {
-        form.addInput("id", "ID");
-        form.addInput("partId", "Part ID (optional, leave empty to check whole experiment)");
+    public View build() {
+        inputForm = new InputForm(getTerminalUI(), "Check experiment (part) result");
+        inputForm.addInput("id", "ID");
+        inputForm.addInput("partId", "Part ID (optional)");
+        inputForm.setSubmitAction("Check", this::handleCheckAction);
+
+        configure(inputForm);
+        inputForm.focusFirstInput();
+        return inputForm;
     }
 
-    @Override
-    public View execute(Map<String, String> data, ExperimentClient client) {
+    private void handleCheckAction(Map<String, String> data) {
+        View resultView;
         try {
             long id = Long.parseLong(data.get("id"));
             String partIdRaw = data.getOrDefault("partId", "");
@@ -49,64 +55,87 @@ public class GetExperimentResultAction implements ExperimentAction {
                     : Optional.of(Long.parseLong(partIdRaw));
 
             if (partId.isPresent()) {
-                GetExperimentPartStatusResponse st = client.getExperimentPartStatus(id, partId.get());
-                ExperimentPartStatus ps = st.status();
-
-                if (ps == ExperimentPartStatus.FAILED) {
-                    return new SimpleMessageView(
-                            "Result not available",
-                            "Part " + partId.get() + " FAILED.\n" +
-                                    (st.errorMessage() == null ? "No error message." : st.errorMessage())
-                    );
-                }
-                if (ps != ExperimentPartStatus.COMPLETED) {
-                    return new SimpleMessageView(
-                            "Result not ready",
-                            "Part " + partId.get() + " is not completed yet. Status: " + ps
-                    );
-                }
-
-                GetExperimentPartResultResponse resp = client.getExperimentPartResult(id, partId.get());
-                return partResultAsOneTableIndicatorsLast(partId.get(), resp);
+                resultView = handlePartResult(id, partId.get());
+            } else {
+                resultView = handleWholeExperimentResult(id);
             }
-
-            GetExperimentStatusResponse st = client.getExperimentStatus(id);
-            ExperimentStatus es = st.status();
-
-            if (es == ExperimentStatus.FAILED) {
-                return new SimpleMessageView(
-                        "Result not available",
-                        "Experiment id=" + id + " FAILED.\n"
-                );
-            }
-            if (!(es == ExperimentStatus.SUCCESS || es == ExperimentStatus.PARTIAL_SUCCESS)) {
-                return new SimpleMessageView(
-                        "Result not ready",
-                        "Experiment id=" + id + " is not finished yet. Status: " + es
-                );
-            }
-
-            GetExperimentResultResponse resp = client.getExperimentResult(id);
-            return wholeExperimentAsOneTableIndicatorsLast(resp);
 
         } catch (RestClientResponseException e) {
-            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), e.getResponseBodyAsString());
+            resultView = httpErrorView(e.getRawStatusCode(), e.getStatusText(), e.getResponseBodyAsString());
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
+            resultView = httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
         } catch (NumberFormatException e) {
-            return new SimpleMessageView("Invalid input", "ID and Part ID must be valid integers.");
+            resultView = new SimpleMessageView("Invalid input", "ID and Part ID must be valid integers.");
         } catch (Exception e) {
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Error",
                     "Unexpected error: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
             );
         }
+
+        configure(resultView);
+        if (resultView instanceof SimpleMessageView messageView) {
+            configure(messageView.getContentList());
+        }
+
+        View finalResultView = resultView;
+        navigate(ScenarioContext.of(resultView, () -> {
+            if (finalResultView instanceof SimpleMessageView messageView) {
+                getTerminalUI().setFocus(messageView.getContentList());
+            } else {
+                getTerminalUI().setFocus(finalResultView);
+            }
+        }, null));
     }
+
+    private View handlePartResult(long id, long partId) {
+        GetExperimentPartStatusResponse st = client.getExperimentPartStatus(id, partId);
+        ExperimentPartStatus ps = st.status();
+
+        if (ps == ExperimentPartStatus.FAILED) {
+            return new SimpleMessageView(
+                    "Result not available",
+                    "Part " + partId + " FAILED.\n" +
+                            (st.errorMessage() == null ? "No error message." : st.errorMessage())
+            );
+        }
+        if (ps != ExperimentPartStatus.COMPLETED) {
+            return new SimpleMessageView(
+                    "Result not ready",
+                    "Part " + partId + " is not completed yet. Status: " + ps
+            );
+        }
+
+        GetExperimentPartResultResponse resp = client.getExperimentPartResult(id, partId);
+        return partResultAsOneTableIndicatorsLast(partId, resp);
+    }
+
+    private View handleWholeExperimentResult(long id) {
+        GetExperimentStatusResponse st = client.getExperimentStatus(id);
+        ExperimentStatus es = st.status();
+
+        if (es == ExperimentStatus.FAILED) {
+            return new SimpleMessageView(
+                    "Result not available",
+                    "Experiment id=" + id + " FAILED.\n"
+            );
+        }
+        if (!(es == ExperimentStatus.SUCCESS || es == ExperimentStatus.PARTIAL_SUCCESS)) {
+            return new SimpleMessageView(
+                    "Result not ready",
+                    "Experiment id=" + id + " is not finished yet. Status: " + es
+            );
+        }
+
+        GetExperimentResultResponse resp = client.getExperimentResult(id);
+        return wholeExperimentAsOneTableIndicatorsLast(resp);
+    }
+
+    // --- Helpers (bez zmian logiki, tylko dostosowanie do klasy Scenario) ---
 
     private View httpErrorView(int status, String statusText, String body) {
         String msg = extractServerMessage(body);
-
         String title = "HTTP " + status + (statusText == null || statusText.isBlank() ? "" : " " + statusText);
         if (msg == null || msg.isBlank()) {
             msg = "Request failed (no details returned by server).";

@@ -3,10 +3,13 @@ package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.shell.component.view.control.View;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
@@ -18,23 +21,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@Component
-public class GetExperimentAction implements ExperimentAction {
+@ScenarioComponent(name = "Get experiment by ID", type = ScenarioType.EXPERIMENT_MENU)
+public class GetExperimentScenario extends Scenario {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ExperimentClient client;
+    private InputForm inputForm;
 
-    @Override
-    public String getMenuLabelAndTitle() {
-        return "Get experiment by ID";
+    public GetExperimentScenario(ExperimentClient client) {
+        this.client = client;
     }
 
     @Override
-    public void configureInput(InputForm form) {
-        form.addInput("id", "Experiment ID");
+    public View build() {
+        inputForm = new InputForm(getTerminalUI(), "Get Experiment by ID");
+        inputForm.addInput("id", "Experiment ID");
+        inputForm.setSubmitAction("Search", this::handleGetAction);
+
+        configure(inputForm);
+        return inputForm;
     }
 
-    @Override
-    public View execute(Map<String, String> data, ExperimentClient client) {
+    private void handleGetAction(Map<String, String> data) {
+        View resultView;
         try {
             long id = Long.parseLong(data.get("id"));
 
@@ -56,31 +65,44 @@ public class GetExperimentAction implements ExperimentAction {
                 rows.add(row);
             }
 
-            return new SimpleTableView(headers, rows, widths);
+            resultView = new SimpleTableView(headers, rows, widths);
+            ((SimpleTableView) resultView).setTitle("Experiment " + id + " Details");
 
         } catch (RestClientResponseException e) {
-            return httpErrorView(
+            resultView = httpErrorView(
                     e.getRawStatusCode(),
                     e.getStatusText(),
                     e.getResponseBodyAsString()
             );
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            return httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
+            resultView = httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
         } catch (NumberFormatException e) {
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Invalid input",
                     "Experiment ID must be a valid integer."
             );
         } catch (Exception e) {
-            return new SimpleMessageView(
+            resultView = new SimpleMessageView(
                     "Error",
                     "Unexpected error: " +
                             (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
             );
         }
-    }
 
+        configure(resultView);
+
+        View finalResultView = resultView;
+        navigate(ScenarioContext.of(resultView, () -> {
+            if (finalResultView instanceof SimpleMessageView mv) {
+                getTerminalUI().setFocus(mv.getContentList());
+            } else if (finalResultView instanceof SimpleTableView tv) {
+                getTerminalUI().setFocus(tv);
+            } else {
+                getTerminalUI().setFocus(finalResultView);
+            }
+        }, null));
+    }
 
     private View httpErrorView(int status, String statusText, String body) {
         String msg = extractServerMessage(body);

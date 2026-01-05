@@ -19,6 +19,7 @@ import pl.edu.agh.to.kotospring.client.models.ScenarioData;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOpenSelectedItemEvent;
 import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
@@ -47,7 +48,7 @@ public class MainMenu {
             ScenarioComponent ann = AnnotationUtils.findAnnotation(sce.getClass(), ScenarioComponent.class);
             if (ann != null) {
                 String name = ann.name();
-                if (StringUtils.hasText(name)) {
+                if (StringUtils.hasText(name) && ann.type() == ScenarioType.MAIN_MENU) {
                     scenarioList.add(new ScenarioData(sce, name));
                 }
             }
