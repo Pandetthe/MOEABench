@@ -60,20 +60,23 @@ public class MainMenu {
     }
 
     private void returnToMenu() {
-        if (!contextStack.isEmpty()) {
+        while (!contextStack.isEmpty()) {
             ScenarioContext current = contextStack.pop();
             current.stop();
-
             if (contextStack.isEmpty()) {
                 updateGridContent(scenariosView);
                 updateStatusBarForMenu();
                 ui.setFocus(scenariosView);
             } else {
                 ScenarioContext previous = contextStack.peek();
+                ScenarioComponent ann = AnnotationUtils.findAnnotation(previous.scenario().getClass(), ScenarioComponent.class);
+                if (ann != null && ann.skipOnReturn())
+                    continue;
                 updateGridContent(previous.view());
                 updateStatusBarForScenario();
                 ui.setFocus(previous.view());
             }
+            break;
         }
     }
 

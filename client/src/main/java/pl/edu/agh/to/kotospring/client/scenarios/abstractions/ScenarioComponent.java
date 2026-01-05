@@ -18,4 +18,6 @@ public @interface ScenarioComponent {
     String name() default "";
 
     ScenarioType type() default ScenarioType.MAIN_MENU;
+
+    boolean skipOnReturn() default false;
 }

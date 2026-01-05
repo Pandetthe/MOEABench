@@ -46,12 +46,12 @@ public class ExperimentScenario extends Scenario {
         scenarios.setCenterVertically(true);
         scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         scenarios.setItems(scenarioList);
-        getEventloop().onDestroy( getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, scenarios)
+        getEventloop().onDestroy(getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, scenarios)
                 .subscribe(event -> {
                     Object item = event.args().item();
                     if (item instanceof ScenarioData scenarioData) {
                         Scenario scenario = scenarioData.scenario();
-                        scenario.configure(this.getTerminalUI());
+                        scenario.configure(getTerminalUI());
                         scenario.setNavigationConsumer(this::navigate);
                         ScenarioContext context = scenario.buildContext();
                         navigate(context);

@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU)
+@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
 public class CreateExperimentScenario extends Scenario {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -105,7 +105,7 @@ public class CreateExperimentScenario extends Scenario {
         configure(resultView);
 
         View finalResultView = resultView;
-        navigate(ScenarioContext.of(resultView, () -> {
+        navigate(ScenarioContext.of(resultView, null, () -> {
             if (finalResultView instanceof SimpleMessageView mv) {
                 getTerminalUI().setFocus(mv.getContentList());
             } else {

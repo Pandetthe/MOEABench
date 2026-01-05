@@ -16,7 +16,7 @@ import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-@ScenarioComponent(name = "Delete experiment", type = ScenarioType.EXPERIMENT_MENU)
+@ScenarioComponent(name = "Delete experiment", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
 public class RemoveExperimentScenario extends Scenario {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final ExperimentClient client;
@@ -71,7 +71,7 @@ public class RemoveExperimentScenario extends Scenario {
         configure(resultView);
 
         View finalResultView = resultView;
-        navigate(ScenarioContext.of(resultView, () -> {
+        navigate(ScenarioContext.of(resultView, null, () -> {
             if (finalResultView instanceof SimpleMessageView mv) {
                 getTerminalUI().setFocus(mv.getContentList());
             } else {

@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@ScenarioComponent(name = "Check result", type = ScenarioType.EXPERIMENT_MENU)
+@ScenarioComponent(name = "Check result", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
 public class GetExperimentResultScenario extends Scenario {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -80,7 +80,7 @@ public class GetExperimentResultScenario extends Scenario {
         }
 
         View finalResultView = resultView;
-        navigate(ScenarioContext.of(resultView, () -> {
+        navigate(ScenarioContext.of(resultView, null, () -> {
             if (finalResultView instanceof SimpleMessageView messageView) {
                 getTerminalUI().setFocus(messageView.getContentList());
             } else {

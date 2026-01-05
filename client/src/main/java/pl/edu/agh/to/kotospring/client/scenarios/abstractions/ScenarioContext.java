@@ -6,20 +6,26 @@ import org.springframework.shell.component.view.control.View;
 public interface ScenarioContext {
     View view();
 
+    Scenario scenario();
+
     void start();
 
     void stop();
 
-    static ScenarioContext of(View view) {
-        return of(view, null, null);
+    static ScenarioContext of(View view, Scenario scenario) {
+        return of(view, scenario, null, null);
     }
 
-    static ScenarioContext of(View view, @Nullable Runnable start, @Nullable Runnable stop) {
+    static ScenarioContext of(View view, Scenario scenario, @Nullable Runnable start, @Nullable Runnable stop) {
         return new ScenarioContext() {
+            @Override
+            public View view() {
+                return view;
+            }
 
             @Override
-            public org.springframework.shell.component.view.control.View view() {
-                return view;
+            public Scenario scenario() {
+                return scenario;
             }
 
             @Override

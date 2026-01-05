@@ -37,7 +37,7 @@ public abstract class Scenario {
     public abstract View build();
 
     public ScenarioContext buildContext() {
-        return ScenarioContext.of(build());
+        return ScenarioContext.of(build(), this);
     }
 
     public Scenario configure(TerminalUI ui) {
