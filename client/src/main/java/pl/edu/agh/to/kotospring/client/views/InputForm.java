@@ -2,6 +2,7 @@ package pl.edu.agh.to.kotospring.client.views;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.shell.component.view.TerminalUI;
+import org.springframework.shell.component.view.control.ButtonView;
 import org.springframework.shell.component.view.control.GridView;
 import org.springframework.shell.component.view.control.InputView;
 import org.springframework.shell.component.view.event.EventLoop;
@@ -47,11 +48,12 @@ public class InputForm extends FixedGridView {
     }
 
     public void setSubmitAction(String buttonLabel, Consumer<Map<String, String>> onSubmit) {
-        ResizingListView<ExperimentOption> submitBtn = new ResizingListView<>();
+        ButtonView submitBtn = new ButtonView();
         ui.configure(submitBtn);
         submitBtn.setShowBorder(false);
-        submitBtn.setRowHeight(3);
-        submitBtn.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ExperimentOption::name));
+        submitBtn.setText(buttonLabel);
+//        submitBtn.setRowHeight(3);
+//        submitBtn.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ExperimentOption::name));
 
         ExperimentOption option = new ExperimentOption(buttonLabel, () -> {
             Map<String, String> results = inputs.entrySet().stream()
@@ -62,7 +64,7 @@ public class InputForm extends FixedGridView {
             onSubmit.accept(results);
         });
 
-        submitBtn.setItems(List.of(option));
+        submitBtn.setAction(option.action());
 
         EventLoop loop = ui.getEventLoop();
         loop.onDestroy(loop.viewEvents(BUTTON_EVENT_TYPE, submitBtn)
@@ -70,6 +72,8 @@ public class InputForm extends FixedGridView {
         setRowSize(currentRow, 3);
 
         addItem(submitBtn, currentRow, 1, 1, 1, 0, 0);
+
+        setRowSize(currentRow + 1, 0);
     }
 
     public void focusFirstInput() {
