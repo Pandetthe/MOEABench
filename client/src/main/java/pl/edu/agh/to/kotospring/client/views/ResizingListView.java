@@ -59,6 +59,7 @@ public class ResizingListView<T> extends BoxView {
         this.autoRunOnOpen = autoRunOnOpen;
     }
 
+    @Override
     protected void initInternal() {
         super.initInternal();
         this.registerViewCommand(ViewCommand.LINE_UP, this::up);

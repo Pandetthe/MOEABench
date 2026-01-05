@@ -12,6 +12,7 @@ import org.springframework.shell.component.view.TerminalUIBuilder;
 import org.springframework.shell.component.view.control.*;
 import org.springframework.shell.component.view.control.StatusBarView.StatusItem;
 import org.springframework.shell.component.view.event.EventLoop;
+import org.springframework.shell.component.view.event.KeyEvent;
 import org.springframework.shell.component.view.event.KeyEvent.Key;
 import org.springframework.shell.geom.HorizontalAlign;
 import org.springframework.util.StringUtils;
@@ -98,6 +99,9 @@ public class MainMenu {
                 .doOnNext(m -> {
                     if (m.getPlainKey() == Key.q && m.hasCtrl()) {
                         handleQuitOrReturn();
+                    } else if (m.getPlainKey() == (1073741928 & 1048575)) {
+                        // Fix for weird bug, that backspace is not the same key
+                        eventLoop.dispatch(ShellMessageBuilder.ofKeyEvent(new KeyEvent(Key.Backspace, null)));
                     }
                 })
                 .subscribe());

@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class InputForm extends GridView {
+public class InputForm extends FixedGridView {
 
     private final static ParameterizedTypeReference<ResizingListView.ResizingListViewOpenSelectedItemEvent<ExperimentOption>> BUTTON_EVENT_TYPE
             = new ParameterizedTypeReference<>() {};
