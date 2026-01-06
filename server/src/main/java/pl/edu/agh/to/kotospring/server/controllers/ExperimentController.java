@@ -1,6 +1,7 @@
 package pl.edu.agh.to.kotospring.server.controllers;
 
 import org.apache.coyote.BadRequestException;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
@@ -11,6 +12,8 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
+
+import java.time.OffsetDateTime;
 
 @RestController
 @RequestMapping(path = "/experiments")
@@ -30,7 +33,9 @@ public final class ExperimentController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getExperiments() {
+    public ResponseEntity<?> getExperiments(@RequestParam String algorithm, @RequestParam String problem,
+                                            @RequestParam String indicator, @RequestParam String status,
+                                            @RequestParam OffsetDateTime startTime, @RequestParam OffsetDateTime endTime) {
         var experiments = experimentService.getExperiments();
         return ResponseEntity.ok(experimentMapper.mapToGetExperimentsResponse(experiments));
     }
@@ -44,7 +49,10 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/{runNo}")
-    public ResponseEntity<?> getExperimentRun(@PathVariable long id, @PathVariable long runNo) {
+    public ResponseEntity<?> getExperimentRun(@PathVariable long id, @PathVariable long runNo,
+                                              @RequestParam String algorithm, @RequestParam String problem,
+                                              @RequestParam String indicator, @RequestParam String status,
+                                              @RequestParam OffsetDateTime startTime, @RequestParam OffsetDateTime endTime) {
         return experimentService.getExperimentRun(id, runNo)
                 .map(experimentMapper::mapToGetExperimentRunResponse)
                 .map(ResponseEntity::ok)
