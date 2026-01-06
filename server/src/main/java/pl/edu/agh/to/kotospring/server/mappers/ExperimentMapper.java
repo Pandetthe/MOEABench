@@ -3,7 +3,6 @@ package pl.edu.agh.to.kotospring.server.mappers;
 import org.springframework.stereotype.Component;
 import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.util.HashMap;
@@ -115,18 +114,26 @@ public class ExperimentMapper {
         );
     }
 
-    public GetExperimentResultResponse mapToResultResponse(ExperimentRun experimentRun) {
-        return experimentRun.getParts().stream()
-                .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
-                .map(this::mapToResultResponseData)
+    public GetExperimentResultResponse mapToExperimentResultResponse(Experiment experiment) {
+        return experiment.getRuns().stream()
+                .map(this::mapToExperimentResultResponseData)
                 .collect(Collectors.collectingAndThen(
                         Collectors.toList(),
                         GetExperimentResultResponse::new
                 ));
     }
 
-    private GetExperimentResultResponseData mapToResultResponseData(ExperimentPart part) {
+    private GetExperimentResultResponseData mapToExperimentResultResponseData(ExperimentRun run) {
         return new GetExperimentResultResponseData(
+                run.getRunNo(),
+                run.getParts().stream()
+                        .map(this::mapToExperimentResultResponseDataPart)
+                        .toList()
+        );
+    }
+
+    private GetExperimentResultResponseDataPart mapToExperimentResultResponseDataPart(ExperimentPart part) {
+        return new GetExperimentResultResponseDataPart(
                 part.getId(),
                 part.getSolutions().stream()
                         .map(solution -> new AlgorithmResult(
@@ -143,7 +150,34 @@ public class ExperimentMapper {
         );
     }
 
-    public GetExperimentPartResultResponse mapToPartResultResponse(ExperimentPart part) {
+    public GetExperimentRunResultResponse mapToExperimentRunResultResponse(ExperimentRun experimentRun) {
+        return experimentRun.getParts().stream()
+                .map(this::mapToExperimentRunResultResponseData)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        GetExperimentRunResultResponse::new
+                ));
+    }
+
+    private GetExperimentRunResultResponseData mapToExperimentRunResultResponseData(ExperimentPart part) {
+        return new GetExperimentRunResultResponseData(
+                part.getId(),
+                part.getSolutions().stream()
+                        .map(solution -> new AlgorithmResult(
+                                solution.getVariables(),
+                                solution.getObjectives(),
+                                solution.getConstraints()
+                        ))
+                        .collect(Collectors.toList()),
+                part.getIndicators().stream()
+                        .collect(Collectors.toMap(
+                                ExperimentPartIndicator::getName,
+                                ExperimentPartIndicator::getValue
+                        ))
+        );
+    }
+
+    public GetExperimentPartResultResponse mapToExperimentPartResultResponse(ExperimentPart part) {
         List<AlgorithmResult> results = part.getSolutions().stream()
                 .map(solution -> new AlgorithmResult(
                         solution.getVariables(),

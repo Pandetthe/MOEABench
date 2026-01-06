@@ -14,13 +14,13 @@ import java.util.Optional;
 @Repository
 public interface ExperimentPartRepository extends JpaRepository<ExperimentPart, Long> {
     @Query("""
-        select distinct p from ExperimentPart p
-        left join fetch p.solutions s
-        left join fetch p.indicators
-        left join fetch s.constraints
-        left join fetch s.objectives
-        left join fetch s.variables
-        where p.id = :id and p.experimentRun.id = :experimentId
+        select distinct pa from ExperimentPart pa
+        left join fetch pa.indicators ind
+        left join fetch pa.solutions sol
+        left join fetch sol.objectives obj
+        left join fetch sol.constraints con
+        left join fetch sol.variables var
+        where pa.id = :id and pa.experimentRun.id = :experimentId
         """)
     Optional<ExperimentPart> findWithFullSolutionById(Long experimentId, Long id);
 

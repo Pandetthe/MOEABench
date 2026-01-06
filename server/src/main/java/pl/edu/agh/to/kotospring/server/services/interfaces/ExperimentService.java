@@ -14,9 +14,9 @@ public interface ExperimentService {
     Optional<Experiment> getExperiment(long id);
     Optional<ExperimentRun> getExperimentRun(long id, long runNo);
     Optional<ExperimentPart> getExperimentPart(long experimentId, long runNo, long partId);
-
-//    Optional<ExperimentRun> getExperimentResult(long id);
-//    Optional<ExperimentPart> getExperimentPartResult(long id, long partId);
+    Optional<Experiment> getExperimentResult(long id);
+    Optional<ExperimentRun> getExperimentRunResult(long id, long runNo);
+    Optional<ExperimentPart> getExperimentPartResult(long id, long runNo, long partId);
     boolean deleteExperiment(long id);
     boolean deleteExperimentRun(long id, long runNo);
 }

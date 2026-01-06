@@ -169,7 +169,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public Optional<ExperimentRun> getExperimentRun(long id, long runNo) {
-        logger.debug("Fetching details for experiment ID {}", id);
+        logger.debug("Fetching details for experiment ID {} run {}", id, runNo);
         return experimentRunRepository.findWithPartsById(new RunId(id, runNo));
     }
 
@@ -181,19 +181,27 @@ public class ExperimentServiceImpl implements ExperimentService {
         return experimentPartRepository.findByExperimentIdAndId(new RunId(id, runNo), partId);
     }
 
-//    @Override
-//    @Transactional(readOnly = true)
-//    public Optional<ExperimentRun> getExperimentResult(long id) {
-//        logger.debug("Fetching results for experiment ID {}", id);
-//        return experimentRunRepository.findWithFullSolutionById(id);
-//    }
-//
-//    @Override
-//    @Transactional(readOnly = true)
-//    public Optional<ExperimentPart> getExperimentPartResult(long id, long partId) {
-//        logger.debug("Fetching results for experiment part ID {}", id);
-//        return experimentPartRepository.findWithFullSolutionById(id, partId);
-//    }
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Experiment> getExperimentResult(long id) {
+        logger.debug("Fetching results for experiment ID {}", id);
+        return experimentRepository.findWithSolutionById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentRun> getExperimentRunResult(long id, long runNo) {
+        logger.debug("Fetching results for experiment ID {} run {}", id, runNo);
+        return experimentRunRepository.findWithFullSolutionById(new RunId(id, runNo));
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentPart> getExperimentPartResult(long id, long runNo, long partId) {
+        logger.debug("Fetching results for experiment part ID {}", id);
+        return experimentPartRepository.findWithFullSolutionById(id, partId);
+    }
 
     @Override
     @Transactional
@@ -214,14 +222,27 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional
     public boolean deleteExperimentRun(long id, long runNo) {
         logger.debug("Attempting to delete experiment ID {} run {}", id, runNo);
+        return experimentRepository.findWithRunsById(id).map(experiment -> {
+            Optional<ExperimentRun> runToDelete = experiment.getRuns().stream()
+                    .filter(r -> r.getRunNo().equals(runNo))
+                    .findFirst();
 
-        if (experimentRunRepository.existsById(new RunId(id, runNo))) {
-            experimentRunRepository.deleteById(new RunId(id, runNo));
-            logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
-            return true;
-        }
+            if (runToDelete.isPresent()) {
+                experiment.removeRun(runToDelete.get());
+                if (experiment.getRuns().isEmpty()) {
+                    logger.info("Deleting experiment ID {} because last run was removed", id);
+                    experimentRepository.delete(experiment);
+                } else {
+                    experimentRepository.save(experiment);
+                    logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
+                }
+                return true;
+            }
 
-        logger.info("Failed to delete experiment ID {} run {}: Not found", id, runNo);
-        return false;
+            return false;
+        }).orElseGet(() -> {
+            logger.info("Failed to delete experiment ID {} run {}: Experiment not found", id, runNo);
+            return false;
+        });
     }
 }

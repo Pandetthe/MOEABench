@@ -1,10 +1,15 @@
 package pl.edu.agh.to.kotospring.server.controllers;
 
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.mappers.ExperimentMapper;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 @RestController
@@ -78,26 +83,52 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 
-//    @GetMapping("{id}/result")
-//    public ResponseEntity<?> getExperimentResult(@PathVariable long id) {
-//        return experimentService.getExperimentResult(id)
-//                .map(experimentMapper::mapToResultResponse)
-//                .map(ResponseEntity::ok)
-//                .orElseThrow(() -> new NotFoundException("Experiment not found"));
-//    }
-//
-//    @GetMapping("{id}/result/{partId}")
-//    public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long partId) {
-//        return experimentService.getExperimentPartResult(id, partId)
-//                .map(part -> {
-//                    if (part.getStatus() != ExperimentPartStatus.COMPLETED) {
-//                        throw new NotFoundException("Experiment part not completed yet");
-//                    }
-//                    return experimentMapper.mapToPartResultResponse(part);
-//                })
-//                .map(ResponseEntity::ok)
-//                .orElseThrow(() -> new NotFoundException("Experiment part not found"));
-//    }
+    @GetMapping("{id}/result")
+    public ResponseEntity<?> getExperimentResult(@PathVariable long id) {
+        return experimentService.getExperimentResult(id)
+                .map(exp -> {
+                    if (exp.getStatus() == ExperimentStatus.QUEUED ||
+                            exp.getStatus() == ExperimentStatus.IN_PROGRESS) {
+                        throw new NotAllPartsFinishedException();
+                    }
+                    return exp;
+                })
+                .map(experimentMapper::mapToExperimentResultResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment not found"));
+    }
+
+    @GetMapping("{id}/{runNo}/result")
+    public ResponseEntity<?> getExperimentRunResult(
+            @PathVariable long id,
+            @PathVariable long runNo) {
+
+        return experimentService.getExperimentRunResult(id, runNo)
+                .map(run -> {
+                    if (run.getStatus() == ExperimentRunStatus.QUEUED ||
+                            run.getStatus() == ExperimentRunStatus.IN_PROGRESS) {
+                        throw new NotAllPartsFinishedException();
+                    }
+                    return run;
+                })
+                .map(experimentMapper::mapToExperimentRunResultResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment " + id + " or Run " + runNo + " not found"));
+    }
+    @GetMapping("{id}/{runNo}/{partId}/result")
+    public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
+        return experimentService.getExperimentPartResult(id, runNo, partId)
+                .map(part -> {
+                    if (part.getStatus() == ExperimentPartStatus.QUEUED ||
+                            part.getStatus() == ExperimentPartStatus.RUNNING) {
+                        throw new NotAllPartsFinishedException();
+                    }
+                    return part;
+                })
+                .map(experimentMapper::mapToExperimentPartResultResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment not found"));
+    }
 
     @DeleteMapping("{id}")
     public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
