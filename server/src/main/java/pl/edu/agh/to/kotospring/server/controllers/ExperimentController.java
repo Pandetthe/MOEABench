@@ -33,27 +33,38 @@ public final class ExperimentController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getExperiments(@RequestParam String algorithm, @RequestParam String problem,
-                                            @RequestParam String indicator, @RequestParam String status,
-                                            @RequestParam OffsetDateTime startTime, @RequestParam OffsetDateTime endTime) {
-        var experiments = experimentService.getExperiments();
+    public ResponseEntity<?> getExperiments(
+            @RequestParam(required = false) String algorithm,
+            @RequestParam(required = false) String problem,
+            @RequestParam(required = false) String indicator,
+            @RequestParam(required = false) ExperimentStatus status,
+            @RequestParam(required = false) OffsetDateTime startTime,
+            @RequestParam(required = false) OffsetDateTime endTime) {
+
+        var experiments = experimentService.getExperiments(algorithm, problem, indicator, status, startTime, endTime);
         return ResponseEntity.ok(experimentMapper.mapToGetExperimentsResponse(experiments));
     }
 
     @GetMapping("{id}")
-    public ResponseEntity<?> getExperiment(@PathVariable long id) {
-        return experimentService.getExperiment(id)
+    public ResponseEntity<?> getExperiment(
+            @PathVariable long id,
+            @RequestParam(required = false) ExperimentRunStatus runStatus) {
+        return experimentService.getExperiment(id, runStatus)
                 .map(experimentMapper::mapToGetExperimentResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
     @GetMapping("{id}/{runNo}")
-    public ResponseEntity<?> getExperimentRun(@PathVariable long id, @PathVariable long runNo,
-                                              @RequestParam String algorithm, @RequestParam String problem,
-                                              @RequestParam String indicator, @RequestParam String status,
-                                              @RequestParam OffsetDateTime startTime, @RequestParam OffsetDateTime endTime) {
-        return experimentService.getExperimentRun(id, runNo)
+    public ResponseEntity<?> getExperimentRun(
+            @PathVariable long id,
+            @PathVariable long runNo,
+            @RequestParam(required = false) String algorithm,
+            @RequestParam(required = false) String problem,
+            @RequestParam(required = false) String indicator,
+            @RequestParam(required = false) ExperimentPartStatus status) {
+
+        return experimentService.getExperimentRun(id, runNo, algorithm, problem, indicator, status)
                 .map(experimentMapper::mapToGetExperimentRunResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment run not found"));
@@ -69,7 +80,7 @@ public final class ExperimentController {
 
     @GetMapping("{id}/status")
     public ResponseEntity<?> getExperimentStatus(@PathVariable long id) {
-        return experimentService.getExperiment(id)
+        return experimentService.getExperimentStatus(id)
                 .map(experimentMapper::mapToGetExperimentStatusResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
@@ -77,7 +88,7 @@ public final class ExperimentController {
 
     @GetMapping("{id}/{runNo}/status")
     public ResponseEntity<?> getExperimentRunStatus(@PathVariable long id, @PathVariable long runNo) {
-        return experimentService.getExperimentRun(id, runNo)
+        return experimentService.getExperimentRunStatus(id, runNo)
                 .map(experimentMapper::mapToGetExperimentRunStatusResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment run not found"));
@@ -85,7 +96,7 @@ public final class ExperimentController {
 
     @GetMapping("{id}/{runNo}/{partId}/status")
     public ResponseEntity<?> getExperimentPartStatus(@PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
-        return experimentService.getExperimentPart(id, runNo, partId)
+        return experimentService.getExperimentPartStatus(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartStatusResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));

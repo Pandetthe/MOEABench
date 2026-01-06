@@ -2,7 +2,10 @@ package pl.edu.agh.to.kotospring.server.mappers;
 
 import org.springframework.stereotype.Component;
 import pl.edu.agh.to.kotospring.server.entities.*;
+import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.util.HashMap;
@@ -42,6 +45,7 @@ public class ExperimentMapper {
                 experiment.getQueuedAt(),
                 experiment.getStartedAt(),
                 experiment.getFinishedAt(),
+                experiment.getRunCount(),
                 mappedRuns
         );
     }
@@ -99,18 +103,18 @@ public class ExperimentMapper {
         );
     }
 
-    public GetExperimentStatusResponse mapToGetExperimentStatusResponse(Experiment experiment) {
-        return new GetExperimentStatusResponse(experiment.getStatus());
+    public GetExperimentStatusResponse mapToGetExperimentStatusResponse(ExperimentStatus experiment) {
+        return new GetExperimentStatusResponse(experiment);
     }
 
-    public GetExperimentRunStatusResponse mapToGetExperimentRunStatusResponse(ExperimentRun experimentRun) {
-        return new GetExperimentRunStatusResponse(experimentRun.getStatus());
+    public GetExperimentRunStatusResponse mapToGetExperimentRunStatusResponse(ExperimentRunStatus experimentRun) {
+        return new GetExperimentRunStatusResponse(experimentRun);
     }
 
-    public GetExperimentPartStatusResponse mapToGetExperimentPartStatusResponse(ExperimentPart part) {
+    public GetExperimentPartStatusResponse mapToGetExperimentPartStatusResponse(PartStatusInfo part) {
         return new GetExperimentPartStatusResponse(
-                part.getStatus(),
-                part.getErrorMessage()
+                part.status(),
+                part.errorMessage()
         );
     }
 

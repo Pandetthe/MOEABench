@@ -5,7 +5,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
+import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,10 +28,30 @@ public interface ExperimentPartRepository extends JpaRepository<ExperimentPart, 
 
     @Query("""
         select distinct p from ExperimentPart p
-        where p.id = :id and p.id = :runId
+        where p.id = :id and p.experimentRun.id= :runId
         """)
     Optional<ExperimentPart> findByExperimentIdAndId(RunId runId, Long id);
 
+    @Query("""
+    select distinct p from ExperimentPart p
+    left join fetch p.indicators ind
+    where p.experimentRun.id = :runId
+      and (:algorithm is null or p.algorithm = :algorithm)
+      and (:problem is null or p.problem= :problem)
+      and (:status is null or p.status = :status)
+      and (:indicator is null or ind.name = :indicator)
+    """)
+    List<ExperimentPart> findFilteredParts(
+            RunId runId, String algorithm, String problem,
+            ExperimentPartStatus status, String indicator);
+
     List<ExperimentPart> findAllByExperimentRunId(RunId id);
     long countByExperimentRunIdAndStatusIn(RunId id, Collection<ExperimentPartStatus> statuses);
+
+    @Query("""
+        select new pl.edu.agh.to.kotospring.server.models.PartStatusInfo(p.status, p.errorMessage)
+        from ExperimentPart p
+        where p.id = :id and p.experimentRun.id = :runId
+        """)
+    Optional<PartStatusInfo> findStatusInfoById(RunId runId, Long id);
 }

@@ -10,6 +10,7 @@ public record GetExperimentResponse(
         OffsetDateTime queuedAt,
         OffsetDateTime startedAt,
         OffsetDateTime finishedAt,
+        long runCount,
         List<GetExperimentResponseData> runs
 ) {
 }

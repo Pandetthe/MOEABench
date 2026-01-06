@@ -15,11 +15,15 @@ import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRunRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.*;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
 
@@ -154,23 +158,45 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Experiment> getExperiments() {
-        logger.debug("Fetching all experiments");
-        return experimentRepository.findAll();
+    public List<Experiment> getExperiments(String algorithm, String problem, String indicator,
+                                           ExperimentStatus status, OffsetDateTime start, OffsetDateTime end) {
+        return experimentRepository.findAllFiltered(algorithm, problem, indicator, status, start, end);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Experiment> getExperiment(long id) {
+    public Optional<Experiment> getExperiment(long id, ExperimentRunStatus status) {
         logger.debug("Fetching details for experiment ID {}", id);
-        return experimentRepository.findWithRunsById(id);
+        return experimentRepository.findWithRunsById(id)
+                .map(exp -> {
+                    if (status == null) return exp;
+                    exp.getRuns().removeIf(run -> run.getStatus() != status);
+                    return exp;
+                });
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<ExperimentRun> getExperimentRun(long id, long runNo) {
-        logger.debug("Fetching details for experiment ID {} run {}", id, runNo);
-        return experimentRunRepository.findWithPartsById(new RunId(id, runNo));
+    public Optional<ExperimentRun> getExperimentRun(
+            long id, long runNo, String algorithm, String problem,
+            String indicator, ExperimentPartStatus partStatus) {
+
+        RunId runId = new RunId(id, runNo);
+        if (!experimentRunRepository.existsById(runId)) {
+            return Optional.empty();
+        }
+
+        List<ExperimentPart> filteredParts = experimentPartRepository.findFilteredParts(
+                runId, algorithm, problem, partStatus, indicator);
+
+        return experimentRunRepository.findById(runId).map(run -> {
+            ExperimentRun viewRun = new ExperimentRun();
+            viewRun.setStatus(run.getStatus());
+            viewRun.setStartedAt(run.getStartedAt());
+            viewRun.setFinishedAt(run.getFinishedAt());
+            filteredParts.forEach(viewRun::addPart);
+            return viewRun;
+        });
     }
 
 
@@ -179,6 +205,24 @@ public class ExperimentServiceImpl implements ExperimentService {
     public Optional<ExperimentPart> getExperimentPart(long id, long runNo, long partId) {
         logger.debug("Fetching details for experiment part ID {} (Experiment ID {} run {})", partId, id, runNo);
         return experimentPartRepository.findByExperimentIdAndId(new RunId(id, runNo), partId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentStatus> getExperimentStatus(long id) {
+        return experimentRepository.findStatusById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentRunStatus> getExperimentRunStatus(long id, long runNo) {
+        return experimentRunRepository.findStatusById(new RunId(id, runNo));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<PartStatusInfo> getExperimentPartStatus(long id, long runNo, long partId) {
+        return experimentPartRepository.findStatusInfoById(new RunId(id, runNo), partId);
     }
 
     @Override

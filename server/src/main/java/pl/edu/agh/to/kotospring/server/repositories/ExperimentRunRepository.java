@@ -34,6 +34,8 @@ public interface ExperimentRunRepository extends JpaRepository<ExperimentRun, Ru
         """)
     Optional<ExperimentRun> findWithFullSolutionById(RunId id);
 
+    Optional<ExperimentRunStatus> findStatusById(RunId id);
+
     List<ExperimentRun> findAllByIdExperimentId(Long experimentId);
     long countByIdExperimentIdAndStatusIn(Long experimentId, Collection<ExperimentRunStatus> statuses);
 }

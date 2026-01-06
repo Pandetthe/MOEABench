@@ -75,7 +75,7 @@ public class Experiment {
     }
 
     public Set<ExperimentRun> getRuns() {
-        return Collections.unmodifiableSet(runs);
+        return runs;
     }
     public void addRun(ExperimentRun run) {
         if (run == null) {
