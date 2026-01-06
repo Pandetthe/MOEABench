@@ -46,7 +46,6 @@ public class ExperimentScenario extends Scenario {
         scenarios.setCenterVertically(true);
         scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         scenarios.setItems(scenarioList);
-        setStatusBar(List.of("Wiktor umar i nie żyje", "Chyba"));
         getEventloop().onDestroy(getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, scenarios)
                 .subscribe(event -> {
                     Object item = event.args().item();

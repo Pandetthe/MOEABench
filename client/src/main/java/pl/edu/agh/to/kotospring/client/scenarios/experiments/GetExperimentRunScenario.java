@@ -1,7 +1,7 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
 import org.springframework.shell.component.view.control.View;
-import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
@@ -13,11 +13,10 @@ import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResponse;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentRunResponse;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentRunResponseData;
 
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -26,40 +25,55 @@ import java.util.List;
 import java.util.Map;
 
 @ScenarioComponent(name = "", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
-public class GetExperimentScenario extends Scenario {
+public class GetExperimentRunScenario extends Scenario {
 
     private ExperimentClient client;
     private long experimentId;
+    private long runId;
 
-    private ExperimentRunStatus runStatus = null;
+    private String currentAlgorithm = null;
+    private String currentProblem = null;
+    private String currentIndicator = null;
+    private ExperimentPartStatus currentStatus = null;
 
-    public GetExperimentScenario(ExperimentClient client, long experimentId) {
+    public GetExperimentRunScenario(ExperimentClient client, long experimentId, long runId) {
         this.client = client;
         this.experimentId = experimentId;
+        this.runId = runId;
     }
 
-    protected GetExperimentScenario() {
+    public GetExperimentRunScenario() {
+
     }
 
     @Override
     public View build() {
         try {
+            GetExperimentRunResponse response = client.getExperimentRun(
+                    experimentId,
+                    runId,
+                    currentAlgorithm,
+                    currentProblem,
+                    currentIndicator,
+                    currentStatus
+            );
 
-            GetExperimentResponse response = client.getExperiment(experimentId, runStatus);
-
-            List<String> headers = List.of("RunNo", "Status", "Started", "Finished");
-            List<Integer> widths = List.of(10, 15, 30, 30);
+            List<String> headers = List.of("Part ID", "Status", "Algorithm", "Problem", "Budget", "Started", "Finished");
+            List<Integer> widths = List.of(8, 15, 12, 12, 8, 20, 20);
 
             List<List<String>> rows = new ArrayList<>();
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd.MM.yyyy")
                     .withZone(ZoneId.systemDefault());
 
-            if (response.runs() != null) {
-                for (var run : response.runs()) {
+            if (response.parts() != null) {
+                for (GetExperimentRunResponseData run: response.parts()) {
                     List<String> row = new ArrayList<>();
-                    row.add(String.valueOf(run.runNo()));
-                    row.add(run.status().name());
+                    row.add(String.valueOf(run.id()));
+                    row.add(run.status().toString());
+                    row.add(run.algorithm());
+                    row.add(run.problem());
+                    row.add(String.valueOf(run.budget()));
                     row.add(run.startedAt() != null ? formatter.format(run.startedAt()) : "-");
                     row.add(run.finishedAt() != null ? formatter.format(run.finishedAt()) : "-");
                     rows.add(row);
@@ -67,7 +81,7 @@ public class GetExperimentScenario extends Scenario {
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
-            tableView.setTitle("Details for Experiment ID: " + experimentId);
+            tableView.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runId);
             tableView.setAutoRunOnOpen(false);
             configure(tableView);
 
@@ -92,19 +106,25 @@ public class GetExperimentScenario extends Scenario {
 
             return tableView;
 
-        } catch (RestClientResponseException e) {
-            return new SimpleMessageView("Error", "HTTP Error: " + e.getStatusText());
+        } catch (WebClientRequestException e) {
+            return new SimpleMessageView("Connection Error", "Service unavailable. Could not connect to the server.");
         } catch (WebClientResponseException e) {
-            return new SimpleMessageView("Error", "Server Error: " + e.getStatusCode());
+            if (e.getStatusCode().is5xxServerError()) {
+                return new SimpleMessageView("Server Error", "Internal Server Error. Please try again later.");
+            }
+            return new SimpleMessageView("Error", "Server returned error: " + e.getStatusCode());
         } catch (Exception e) {
-            return new SimpleMessageView("Error", "Unexpected error: " + e.getMessage());
+            return new SimpleMessageView("Unexpected Error", e.getMessage() == null ? e.toString() : e.getMessage());
         }
     }
 
     private void openFilterForm() {
         InputForm form = new InputForm(getTerminalUI(), "Filter Experiments");
 
-        form.addInput("status", "Status (QUEUED, IN_PROGRESS, SUCCESS, PARTIAL_SUCCESS, FAILED)");
+        form.addInput("algorithm", "Algorithm");
+        form.addInput("problem", "Problem");
+        form.addInput("indicator", "Indicator");
+        form.addInput("status", "Status (QUEUED, RUNNING, COMPLETED, FAILED)");
 
         form.setSubmitAction("Apply Filters", this::handleFilterSubmit);
         configure(form);
@@ -114,12 +134,18 @@ public class GetExperimentScenario extends Scenario {
 
     private void handleFilterSubmit(Map<String, String> data) {
         try {
+            String algorithm = data.get("algorithm");
+            String problem = data.get("problem");
+            String indicator = data.get("indicator");
             String statusStr = data.get("status");
 
+            this.currentAlgorithm = (algorithm != null && !algorithm.isBlank()) ? algorithm.trim() : null;
+            this.currentProblem = (problem != null && !problem.isBlank()) ? problem.trim() : null;
+            this.currentIndicator = (indicator != null && !indicator.isBlank()) ? indicator.trim() : null;
             if (statusStr != null && !statusStr.isBlank()) {
-                this.runStatus = ExperimentRunStatus.valueOf(statusStr.trim().toUpperCase());
+                this.currentStatus = ExperimentPartStatus.valueOf(statusStr.trim().toUpperCase());
             } else {
-                this.runStatus = null;
+                this.currentStatus = null;
             }
 
             View filteredTableView = build();
@@ -137,7 +163,10 @@ public class GetExperimentScenario extends Scenario {
     }
 
     private void resetFilters() {
-        this.runStatus = null;
+        this.currentAlgorithm = null;
+        this.currentProblem = null;
+        this.currentIndicator = null;
+        this.currentStatus = null;
     }
 
     @Override
@@ -156,21 +185,23 @@ public class GetExperimentScenario extends Scenario {
             String[] columns = rowText.split("\\|");
             if (columns.length > 0) {
                 String idStr = columns[0].trim();
-                long runId = Long.parseLong(idStr);
+                long partId = Long.parseLong(idStr);
 
-                openDetailsScenario(experimentId, runId);
+                openDetailsScenario(experimentId, runId, partId);
             }
         } catch (NumberFormatException e) {
         }
     }
 
-    private void openDetailsScenario(long experimentId, long runId) {
-        GetExperimentRunScenario experimentScenario = new GetExperimentRunScenario(client, experimentId, runId);
-        experimentScenario.configure(getTerminalUI());
-        ScenarioContext context = experimentScenario.buildContext();
-        experimentScenario.setNavigationConsumer(this::navigate);
-        experimentScenario.setStatusBarConsumer(this::setStatusBar);
+    private void openDetailsScenario(long experimentId, long runId, long partId) {
+        GetExperimentPartScenario experimentPartScenario = new GetExperimentPartScenario(client, experimentId, runId, partId);
+        experimentPartScenario.configure(getTerminalUI());
+        ScenarioContext context = experimentPartScenario.buildContext();
+        experimentPartScenario.setNavigationConsumer(this::navigate);
+        experimentPartScenario.setStatusBarConsumer(this::setStatusBar);
 
         navigate(context);
     }
+
+
 }

@@ -71,7 +71,7 @@ public class InputForm extends FixedGridView {
 
         addItem(submitBtn, currentRow, 1, 1, 1, 0, 0);
 
-        setRowSize(currentRow + 1, 0);
+//        setRowSize(currentRow + 1, 0);
     }
 
     public void focusFirstInput() {

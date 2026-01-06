@@ -1,15 +1,16 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
 import org.springframework.shell.component.view.control.View;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
+import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
+import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
@@ -17,6 +18,8 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentsRespo
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentsResponseData;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,17 +56,21 @@ public class GetExperimentsScenario extends Scenario {
 
             List<List<String>> rows = new ArrayList<>();
 
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd.MM.yyyy")
+                    .withZone(ZoneId.systemDefault());
+
             for (GetExperimentsResponseData exp : response) {
                 List<String> row = new ArrayList<>();
                 row.add(String.valueOf(exp.id()));
                 row.add(exp.status().name());
-                row.add(exp.queuedAt() != null ? String.valueOf(exp.queuedAt()) : "-");
-                row.add(exp.startedAt() != null ? String.valueOf(exp.startedAt()) : "-");
-                row.add(exp.finishedAt() != null ? String.valueOf(exp.finishedAt()) : "-");
+                row.add(exp.queuedAt() != null ? formatter.format(exp.queuedAt()) : "-");
+                row.add(exp.startedAt() != null ? formatter.format(exp.startedAt()) : "-");
+                row.add(exp.finishedAt() != null ? formatter.format(exp.finishedAt()) : "-");
                 rows.add(row);
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
+            tableView.setAutoRunOnOpen(false);
 
             configure(tableView);
 
@@ -72,6 +79,16 @@ public class GetExperimentsScenario extends Scenario {
                             .subscribe(event -> {
                                 if (tableView.hasFocus() && event.getPlainKey() == 'f' && event.hasCtrl()) {
                                     openFilterForm();
+                                }
+                            })
+            );
+
+            getEventloop().onDestroy(
+                    getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, tableView)
+                            .subscribe(event -> {
+                                Object item = event.args().item();
+                                if (item instanceof ExperimentOption option) {
+                                    handleRowSelection(option);
                                 }
                             })
             );
@@ -160,5 +177,34 @@ public class GetExperimentsScenario extends Scenario {
     @Override
     public ScenarioContext buildContext() {
         return ScenarioContext.of(build(), this, null, this::resetFilters);
+    }
+
+    private void handleRowSelection(ExperimentOption option) {
+        String rowText = option.name();
+
+        if (rowText.contains("ID") && rowText.contains("Status")) return;
+        if (rowText.startsWith("--")) return;
+        if (rowText.contains("<<") || rowText.contains(">>")) return;
+
+        try {
+            String[] columns = rowText.split("\\|");
+            if (columns.length > 0) {
+                String idStr = columns[0].trim();
+                long experimentId = Long.parseLong(idStr);
+
+                openDetailsScenario(experimentId);
+            }
+        } catch (NumberFormatException e) {
+        }
+    }
+
+    private void openDetailsScenario(long experimentId) {
+        GetExperimentScenario experimentScenario = new GetExperimentScenario(experimentClient, experimentId);
+        experimentScenario.configure(getTerminalUI());
+        ScenarioContext context = experimentScenario.buildContext();
+        experimentScenario.setNavigationConsumer(this::navigate);
+        experimentScenario.setStatusBarConsumer(this::setStatusBar);
+
+        navigate(context);
     }
 }
