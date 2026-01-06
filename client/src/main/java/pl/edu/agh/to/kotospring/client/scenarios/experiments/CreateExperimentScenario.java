@@ -10,9 +10,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentResponse;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -37,6 +35,7 @@ public class CreateExperimentScenario extends Scenario {
         form.addInput("algorithms", "Algorithms (comma separated)");
         form.addInput("indicators", "Indicators (comma separated)");
         form.addInput("budget", "Budget (integer)");
+        form.addInput("runsNo", "Number of runs (integer)");
         form.setSubmitAction("Create", this::handleCreateAction);
 
         configure(form);
@@ -51,20 +50,22 @@ public class CreateExperimentScenario extends Scenario {
             List<String> problemList = List.of(data.get("problems").split(","));
             Set<String> indicatorSet = Set.of(data.get("indicators").split(","));
             int budget = Integer.parseInt(data.get("budget"));
-            CreateExperimentRequest request = new CreateExperimentRequest();
+            int runsNo = Integer.parseInt(data.get("runsNo"));
+            CreateExperimentFullRequest request = new CreateExperimentFullRequest();
 
             for (String algorithm : algorithmList) {
                 if (algorithm.isBlank()) continue;
                 for (String problem : problemList) {
                     if (problem.isBlank()) continue;
                     Map<String, Object> algorithmParameters = Map.of();
-                    CreateExperimentRequestData requestData =
-                            new CreateExperimentRequestData(
+                    CreateExperimentFullRequestData requestData =
+                            new CreateExperimentFullRequestData(
                                     problem.trim(),
                                     algorithm.trim(),
                                     algorithmParameters,
                                     indicatorSet,
-                                    budget
+                                    budget,
+                                    runsNo
                             );
                     request.add(requestData);
                 }
@@ -73,7 +74,7 @@ public class CreateExperimentScenario extends Scenario {
             if (request.isEmpty()) {
                 throw new IllegalArgumentException("No valid experiments defined. Check inputs.");
             }
-            CreateExperimentResponse response = client.createExperiment(request);
+            CreateExperimentFullResponse response = client.createExperiment(request, runsNo);
 
             resultView = new SimpleMessageView(
                     "Success",

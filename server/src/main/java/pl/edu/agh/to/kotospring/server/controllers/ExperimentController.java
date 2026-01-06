@@ -20,8 +20,8 @@ public final class ExperimentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CreateExperimentRequest body) {
-        var experiment = experimentService.createExperiment(body);
+    public ResponseEntity<?> create(@RequestBody CreateExperimentRequest body, @RequestParam int runsNo) {
+        var experiment = experimentService.createExperimentFull(body, runsNo);
         return ResponseEntity.ok(experimentMapper.mapToCreateResponse(experiment));
     }
 
@@ -34,7 +34,7 @@ public final class ExperimentController {
     @GetMapping("{id}")
     public ResponseEntity<?> getExperiment(@PathVariable long id) {
         return experimentService.getExperiment(id)
-                .map(experimentMapper::mapToGetExperimentResponse)
+                .map(experimentMapper::mapToGetExperimentFullResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
@@ -42,7 +42,7 @@ public final class ExperimentController {
     @GetMapping("{id}/status/")
     public ResponseEntity<?> getExperimentStatus(@PathVariable long id) {
         return experimentService.getExperimentStatus(id)
-                .map(experimentMapper::mapToStatusResponse)
+                .map(experimentMapper::mapToFullStatusResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
@@ -77,8 +77,8 @@ public final class ExperimentController {
     }
 
     @DeleteMapping("{id}")
-    public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
-        if (experimentService.deleteExperiment(id))
+    public ResponseEntity<?> deleteExperimentFull(@PathVariable long id) {
+        if (experimentService.deleteExperimentFull(id))
             return ResponseEntity.noContent().build();
         throw new NotFoundException("Experiment not found");
     }

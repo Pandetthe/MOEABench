@@ -2,6 +2,7 @@ package pl.edu.agh.to.kotospring.client.api;
 
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.DeleteExchange;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.PostExchange;
@@ -22,7 +23,7 @@ public interface ExperimentClient {
     );
 
     @GetExchange("/experiments/{id}")
-    GetExperimentResponse getExperiment(@PathVariable("id") long id);
+    GetExperimentFullResponse getExperiment(@PathVariable("id") long id);
 
     @GetExchange("/experiments/{id}/result")
     GetExperimentResultResponse getExperimentResult(@PathVariable("id") long id);
@@ -34,8 +35,8 @@ public interface ExperimentClient {
     );
 
     @PostExchange("/experiments")
-    CreateExperimentResponse createExperiment(@RequestBody CreateExperimentRequest request);
+    CreateExperimentFullResponse createExperiment(@RequestBody CreateExperimentFullRequest request, @RequestParam("runsNo") int runsNo);
 
     @DeleteExchange("/experiments/{id}")
-    void deleteExperiment(@PathVariable("id") long id);
+    void deleteFullExperiment(@PathVariable("id") long id);
 }

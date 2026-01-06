@@ -1,10 +1,7 @@
 package pl.edu.agh.to.kotospring.server.mappers;
 
 import org.springframework.stereotype.Component;
-import pl.edu.agh.to.kotospring.server.entities.Experiment;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPartAlgorithmParameter;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPartIndicator;
+import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
@@ -16,8 +13,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class ExperimentMapper {
-    public CreateExperimentResponse mapToCreateResponse(Experiment experiment) {
-        return new CreateExperimentResponse(experiment.getId());
+    public CreateExperimentFullResponse mapToCreateResponse(ExperimentFull experimentFull) {
+        return new CreateExperimentFullResponse(experimentFull.getId());
     }
 
     public GetExperimentsResponse mapToGetExperimentsResponse(List<Experiment> experiments) {
@@ -33,6 +30,20 @@ public class ExperimentMapper {
                         Collectors.toList(),
                         GetExperimentsResponse::new
                 ));
+    }
+
+    public GetExperimentFullResponse mapToGetExperimentFullResponse(ExperimentFull experimentFull) {
+        List<GetExperimentResponse> mappedRuns = experimentFull.getRuns().stream()
+                .map(this::mapToGetExperimentResponse)
+                .toList();
+
+        return new GetExperimentFullResponse(
+                experimentFull.getStatus(),
+                experimentFull.getQueuedAt(),
+                experimentFull.getStartedAt(),
+                experimentFull.getFinishedAt(),
+                mappedRuns
+        );
     }
 
     public GetExperimentResponse mapToGetExperimentResponse(Experiment experiment) {
@@ -62,6 +73,10 @@ public class ExperimentMapper {
                 part.getStartedAt(),
                 part.getFinishedAt()
         );
+    }
+
+    public GetExperimentStatusResponse mapToFullStatusResponse(ExperimentFull experimentFull) {
+        return new GetExperimentStatusResponse(experimentFull.getStatus());
     }
 
     public GetExperimentStatusResponse mapToStatusResponse(Experiment experiment) {

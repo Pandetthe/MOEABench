@@ -12,6 +12,10 @@ public class Experiment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "experiment_full_id", nullable = false)
+    private ExperimentFull experimentFull;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ExperimentStatus status;
@@ -83,4 +87,6 @@ public class Experiment {
     public Set<ExperimentPart> getParts() {
         return Collections.unmodifiableSet(parts);
     }
+    public void setExperimentFull(ExperimentFull experimentFull) {this.experimentFull = experimentFull; }
+    public ExperimentFull getExperimentFull() { return experimentFull; }
 }

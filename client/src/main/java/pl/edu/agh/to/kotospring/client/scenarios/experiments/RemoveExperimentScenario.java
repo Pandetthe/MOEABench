@@ -38,7 +38,7 @@ public class RemoveExperimentScenario extends Scenario {
         View resultView;
         try {
             long id = Long.parseLong(data.get("id"));
-            client.deleteExperiment(id);
+            client.deleteFullExperiment(id);
 
             resultView = new SimpleMessageView(
                     "Success",

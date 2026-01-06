@@ -11,6 +11,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentFullResponse;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResponse;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResponseData;
 
@@ -46,52 +47,49 @@ public class GetExperimentScenario extends Scenario {
         try {
             long id = Long.parseLong(data.get("id"));
 
-            GetExperimentResponse response = client.getExperiment(id);
+            GetExperimentFullResponse response = client.getExperiment(id);
 
-            List<String> headers = List.of("ID", "Status", "Algorithm", "Problem", "Budget", "Error");
-            List<Integer> widths = List.of(5, 10, 14, 14, 10, 40);
+            List<String> headers = List.of("Part ID", "Status", "Algorithm", "Problem", "Budget", "Error");
+            List<Integer> widths = List.of(10, 10, 14, 14, 10, 40);
+
 
             List<List<String>> rows = new ArrayList<>();
 
-            for (GetExperimentResponseData exp : response.parts()) {
-                List<String> row = new ArrayList<>();
-                row.add(String.valueOf(exp.id()));
-                row.add(exp.status().name());
-                row.add(exp.algorithm());
-                row.add(exp.problem());
-                row.add(String.valueOf(exp.budget()));
-                row.add(exp.errorMessage() == null ? "None" : exp.errorMessage());
-                rows.add(row);
+            if (response.runs() != null) {
+                for (GetExperimentResponse run : response.runs()) {
+                    if (run.parts() != null) {
+                        for (GetExperimentResponseData part : run.parts()) {
+                            List<String> row = new ArrayList<>();
+                            row.add(String.valueOf(part.id()));
+                            row.add(part.status().name());
+                            row.add(part.algorithm());
+                            row.add(part.problem());
+                            row.add(String.valueOf(part.budget()));
+                            row.add(part.errorMessage() == null ? "-" : part.errorMessage());
+                            rows.add(row);
+                        }
+                    }
+                }
             }
+            SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
+            tableView.setTitle("Experiment " + id + " Details");
+            resultView = tableView;
 
-            resultView = new SimpleTableView(headers, rows, widths);
-            ((SimpleTableView) resultView).setTitle("Experiment " + id + " Details");
 
         } catch (RestClientResponseException e) {
-            resultView = errorHandler.httpErrorView(
-                    e.getRawStatusCode(),
-                    e.getStatusText(),
-                    e.getResponseBodyAsString()
-            );
+            resultView = errorHandler.httpErrorView(e.getRawStatusCode(), e.getStatusText(), e.getResponseBodyAsString());
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
             resultView = errorHandler.httpErrorView(e.getRawStatusCode(), e.getStatusText(), body);
         } catch (NumberFormatException e) {
-            resultView = new SimpleMessageView(
-                    "Invalid input",
-                    "Experiment ID must be a valid integer."
-            );
+            resultView = new SimpleMessageView("Invalid input", "Experiment ID must be a valid integer.");
         } catch (Exception e) {
-            resultView = new SimpleMessageView(
-                    "Error",
-                    "Unexpected error: " +
-                            (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
-            );
+            resultView = new SimpleMessageView("Error", "Unexpected error: " + e.getMessage());
         }
 
         configure(resultView);
-
         View finalResultView = resultView;
+
         navigate(ScenarioContext.of(resultView, null, () -> {
             if (finalResultView instanceof SimpleMessageView mv) {
                 getTerminalUI().setFocus(mv.getContentList());
