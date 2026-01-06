@@ -23,7 +23,7 @@ public interface ExperimentClient {
     );
 
     @GetExchange("/experiments/{id}")
-    GetExperimentFullResponse getExperiment(@PathVariable("id") long id);
+    GetExperimentResponse getExperiment(@PathVariable("id") long id);
 
     @GetExchange("/experiments/{id}/result")
     GetExperimentResultResponse getExperimentResult(@PathVariable("id") long id);
@@ -35,7 +35,7 @@ public interface ExperimentClient {
     );
 
     @PostExchange("/experiments")
-    CreateExperimentFullResponse createExperiment(@RequestBody CreateExperimentFullRequest request, @RequestParam("runsNo") int runsNo);
+    CreateExperimentResponse createExperiment(@RequestBody CreateExperimentRequest request, @RequestParam("runsNo") int runsNo);
 
     @DeleteExchange("/experiments/{id}")
     void deleteFullExperiment(@PathVariable("id") long id);

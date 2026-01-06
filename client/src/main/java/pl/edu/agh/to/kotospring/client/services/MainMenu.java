@@ -32,10 +32,11 @@ public class MainMenu {
     private final Deque<ScenarioContext> contextStack = new ArrayDeque<>();
 
     private TerminalUI ui;
-
+    private boolean isMainMenu;
     private ResizingListView<ScenarioData> scenariosView;
     private StatusBarView statusBar;
     private GridView mainGrid;
+    private List<String> statusBarData;
 
     private EventLoop eventLoop;
 
@@ -66,7 +67,9 @@ public class MainMenu {
             current.stop();
             if (contextStack.isEmpty()) {
                 updateGridContent(scenariosView);
-                updateStatusBarForMenu();
+                isMainMenu = true;
+                statusBarData.clear();
+                updateStatusBar();
                 ui.setFocus(scenariosView);
             } else {
                 ScenarioContext previous = contextStack.peek();
@@ -74,7 +77,9 @@ public class MainMenu {
                 if (ann != null && ann.skipOnReturn())
                     continue;
                 updateGridContent(previous.view());
-                updateStatusBarForScenario();
+                isMainMenu = false;
+                statusBarData.clear();
+                updateStatusBar();
                 ui.setFocus(previous.view());
             }
             break;
@@ -124,7 +129,9 @@ public class MainMenu {
         mainGrid.setColumnSize(0);
 
         updateGridContent(scenariosView);
-        updateStatusBarForMenu();
+        statusBarData = new ArrayList<>();
+        isMainMenu = true;
+        updateStatusBar();
 
         eventLoop.onDestroy(eventLoop.viewEvents(ResizingListViewOpenSelectedItemEvent.class, scenariosView)
                 .subscribe(event -> {
@@ -137,8 +144,11 @@ public class MainMenu {
     }
 
     private void openScenario(Scenario scenario) {
+        statusBarData.clear();
         scenario.configure(ui);
+        isMainMenu = false;
         scenario.setNavigationConsumer(this::navigateTo);
+        scenario.setStatusBarConsumer(this::setStatusBar);
         ScenarioContext context = scenario.buildContext();
         navigateTo(context);
     }
@@ -147,9 +157,14 @@ public class MainMenu {
         ui.configure(context.view());
         contextStack.push(context);
         updateGridContent(context.view());
-        updateStatusBarForScenario();
+        updateStatusBar();
         ui.setFocus(context.view());
         context.start();
+    }
+
+    private void setStatusBar(List<String> statusBar) {
+        statusBarData.addAll(statusBar);
+        updateStatusBar();
     }
 
     private void updateGridContent(View centerView) {
@@ -158,16 +173,11 @@ public class MainMenu {
         mainGrid.addItem(statusBar, 1, 0, 1, 1, 0, 0);
     }
 
-    private void updateStatusBarForMenu() {
-        statusBar.setItems(List.of(
-                StatusItem.of("CTRL-Q Exit", this::requestQuit)
-        ));
-    }
-
-    private void updateStatusBarForScenario() {
-        statusBar.setItems(List.of(
-                StatusItem.of("CTRL-Q Return", this::returnToMenu)
-        ));
+    private void updateStatusBar() {
+        List<StatusItem> statusBarItems = new ArrayList<>();
+        statusBarItems.add(isMainMenu ? StatusItem.of("CTRL-Q Exit", this::requestQuit) : StatusItem.of("CTRL-Q Return", this::returnToMenu));
+        statusBarData.forEach(s -> statusBarItems.add(StatusItem.of(s)));
+        statusBar.setItems(statusBarItems);
     }
 
     private ResizingListView<ScenarioData> buildScenarioSelector() {

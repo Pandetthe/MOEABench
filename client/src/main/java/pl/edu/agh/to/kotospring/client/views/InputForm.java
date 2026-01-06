@@ -3,11 +3,9 @@ package pl.edu.agh.to.kotospring.client.views;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.shell.component.view.TerminalUI;
 import org.springframework.shell.component.view.control.ButtonView;
-import org.springframework.shell.component.view.control.GridView;
 import org.springframework.shell.component.view.control.InputView;
 import org.springframework.shell.component.view.event.EventLoop;
 import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
-import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 import java.util.LinkedHashMap;
 import java.util.List;

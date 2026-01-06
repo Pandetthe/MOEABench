@@ -4,6 +4,8 @@ import org.springframework.shell.component.view.TerminalUI;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.component.view.control.ViewService;
 import org.springframework.shell.component.view.event.EventLoop;
+
+import java.util.List;
 import java.util.function.Consumer;
 
 public abstract class Scenario {
@@ -11,6 +13,7 @@ public abstract class Scenario {
     private ViewService viewService;
     private EventLoop eventloop;
     private Consumer<ScenarioContext> navigationConsumer;
+    private Consumer<List<String>> statusBarConsumer;
 
     protected ViewService getViewService() {
         return viewService;
@@ -26,6 +29,16 @@ public abstract class Scenario {
 
     public void setNavigationConsumer(Consumer<ScenarioContext> navigationConsumer) {
         this.navigationConsumer = navigationConsumer;
+    }
+
+    public void setStatusBarConsumer(Consumer<List<String>> statusBarConsumer) {
+        this.statusBarConsumer = statusBarConsumer;
+    }
+
+    public void setStatusBar(List<String> statusBar) {
+        if (statusBarConsumer != null) {
+            statusBarConsumer.accept(statusBar);
+        }
     }
 
     protected void navigate(ScenarioContext context) {
