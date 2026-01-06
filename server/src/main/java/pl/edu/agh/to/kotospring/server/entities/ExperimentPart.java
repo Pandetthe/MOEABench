@@ -7,33 +7,38 @@ import java.time.OffsetDateTime;
 import java.util.*;
 
 @Entity
+@Table(name = "experiment_part")
 public class ExperimentPart {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "experiment_id", nullable = false)
-    private Experiment experiment;
+    @JoinColumns({
+            @JoinColumn(name = "experiment_id", referencedColumnName = "experiment_id", nullable = false),
+            @JoinColumn(name = "run_no", referencedColumnName = "run_no", nullable = false)
+    })
+    private ExperimentRun experimentRun;
 
-    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<ExperimentPartAlgorithmParameter> parameters = new HashSet<>();
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "problem", nullable = false)
     private String problem;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "algorithm", nullable = false)
     private String algorithm;
 
     @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ExperimentPartIndicator> indicators = new HashSet<>();
+    private final Set<ExperimentPartIndicator> indicators = new HashSet<>();
 
-    @Column(nullable = false)
+    @Column(name = "budget", nullable = false)
     private int budget;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private ExperimentPartStatus status;
 
     @Column(name = "error_message", length = 2048)
@@ -46,22 +51,15 @@ public class ExperimentPart {
     private OffsetDateTime finishedAt;
 
     @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private Set<ExperimentPartSolution> solutions = new HashSet<>();
-
+    private final Set<ExperimentPartSolution> solutions = new HashSet<>();
 
     public ExperimentPart() {
         this.status = ExperimentPartStatus.QUEUED;
     }
-
-    public ExperimentPart(String problem, String algorithm,
-                          Collection<ExperimentPartAlgorithmParameter> parameters, int budget) {
+    public ExperimentPart(String problem, String algorithm, int budget) {
         this();
         this.problem = Objects.requireNonNull(problem);
         this.algorithm = Objects.requireNonNull(algorithm);
-        if (parameters != null) {
-            this.parameters.addAll(parameters);
-            this.parameters.forEach(p -> p.setExperimentPart(this));
-        }
         this.budget = budget;
     }
 
@@ -69,18 +67,37 @@ public class ExperimentPart {
         return id;
     }
 
-    public Experiment getExperiment() {
-        return experiment;
+    public ExperimentRun getExperimentRun() {
+        return experimentRun;
+    }
+    public void setExperimentRun(ExperimentRun experimentRun) {
+        this.experimentRun = experimentRun;
+        if (experimentRun != null && !experimentRun.getParts().contains(this)) {
+            experimentRun.addPart(this);
+        }
     }
 
-    public void setExperiment(Experiment experiment) {
-        this.experiment = experiment;
+    public Set<ExperimentPartAlgorithmParameter> getParameters() {
+        return Collections.unmodifiableSet(this.parameters);
+    }
+    public void addParameter(ExperimentPartAlgorithmParameter parameter) {
+        if (parameter == null) {
+            throw new IllegalArgumentException("parameter must not be null");
+        }
+        if (this.parameters.add(parameter)) {
+            parameter.setExperimentPart(this);
+        }
+    }
+    public void removeParameter(ExperimentPartAlgorithmParameter parameter) {
+        if (parameter == null) return;
+        if (this.parameters.remove(parameter)) {
+            parameter.setExperimentPart(null);
+        }
     }
 
     public String getProblem() {
         return problem;
     }
-
     public void setProblem(String problem) {
         this.problem = problem;
     }
@@ -88,7 +105,6 @@ public class ExperimentPart {
     public String getAlgorithm() {
         return algorithm;
     }
-
     public void setAlgorithm(String algorithm) {
         this.algorithm = algorithm;
     }
@@ -96,16 +112,24 @@ public class ExperimentPart {
     public Set<ExperimentPartIndicator> getIndicators() {
         return Collections.unmodifiableSet(this.indicators);
     }
-
     public void addIndicator(ExperimentPartIndicator indicator) {
-        indicator.setExperimentPart(this);
-        this.indicators.add(indicator);
+        if (indicator == null) {
+            throw new IllegalArgumentException("indicator must not be null");
+        }
+        if (this.indicators.add(indicator)) {
+            indicator.setExperimentPart(this);
+        }
+    }
+    public void removeIndicator(ExperimentPartIndicator indicator) {
+        if (indicator == null) return;
+        if (this.indicators.remove(indicator)) {
+            indicator.setExperimentPart(null);
+        }
     }
 
     public int getBudget() {
         return this.budget;
     }
-
     public void setBudget(int budget) {
         this.budget = budget;
     }
@@ -113,7 +137,6 @@ public class ExperimentPart {
     public ExperimentPartStatus getStatus() {
         return this.status;
     }
-
     public void setStatus(ExperimentPartStatus status) {
         this.status = status;
     }
@@ -121,7 +144,6 @@ public class ExperimentPart {
     public String getErrorMessage() {
         return errorMessage;
     }
-
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
     }
@@ -129,7 +151,6 @@ public class ExperimentPart {
     public OffsetDateTime getStartedAt() {
         return startedAt;
     }
-
     public void setStartedAt(OffsetDateTime startedAt) {
         this.startedAt = startedAt;
     }
@@ -137,23 +158,25 @@ public class ExperimentPart {
     public OffsetDateTime getFinishedAt() {
         return finishedAt;
     }
-
     public void setFinishedAt(OffsetDateTime finishedAt) {
         this.finishedAt = finishedAt;
-    }
-
-    public Set<ExperimentPartAlgorithmParameter> getParameters() {
-        return Collections.unmodifiableSet(this.parameters);
     }
 
     public Set<ExperimentPartSolution> getSolutions() {
         return Collections.unmodifiableSet(solutions);
     }
-
     public void addSolution(ExperimentPartSolution solution) {
         if (solution == null) {
             throw new IllegalArgumentException("solution must not be null");
         }
-        this.solutions.add(solution);
+        if (this.solutions.add(solution)) {
+            solution.setExperimentPart(this);
+        }
+    }
+    public void removeSolution(ExperimentPartSolution solution) {
+        if (solution == null) return;
+        if (this.solutions.remove(solution)) {
+            solution.setExperimentPart(null);
+        }
     }
 }

@@ -13,8 +13,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class ExperimentMapper {
-    public CreateExperimentFullResponse mapToCreateResponse(ExperimentFull experimentFull) {
-        return new CreateExperimentFullResponse(experimentFull.getId());
+    public CreateExperimentResponse mapToCreateResponse(Experiment experiment) {
+        return new CreateExperimentResponse(experiment.getId());
     }
 
     public GetExperimentsResponse mapToGetExperimentsResponse(List<Experiment> experiments) {
@@ -24,7 +24,8 @@ public class ExperimentMapper {
                         experiment.getStatus(),
                         experiment.getQueuedAt(),
                         experiment.getStartedAt(),
-                        experiment.getFinishedAt()
+                        experiment.getFinishedAt(),
+                        experiment.getRunCount()
                 ))
                 .collect(Collectors.collectingAndThen(
                         Collectors.toList(),
@@ -32,66 +33,90 @@ public class ExperimentMapper {
                 ));
     }
 
-    public GetExperimentFullResponse mapToGetExperimentFullResponse(ExperimentFull experimentFull) {
-        List<GetExperimentResponse> mappedRuns = experimentFull.getRuns().stream()
-                .map(this::mapToGetExperimentResponse)
+    public GetExperimentResponse mapToGetExperimentResponse(Experiment experiment) {
+        List<GetExperimentResponseData> mappedRuns = experiment.getRuns().stream()
+                .map(this::mapToGetExperimentResponseData)
                 .toList();
 
-        return new GetExperimentFullResponse(
-                experimentFull.getStatus(),
-                experimentFull.getQueuedAt(),
-                experimentFull.getStartedAt(),
-                experimentFull.getFinishedAt(),
-                mappedRuns
-        );
-    }
-
-    public GetExperimentResponse mapToGetExperimentResponse(Experiment experiment) {
         return new GetExperimentResponse(
                 experiment.getStatus(),
                 experiment.getQueuedAt(),
                 experiment.getStartedAt(),
                 experiment.getFinishedAt(),
-                experiment.getParts().stream().map(this::mapToPartData).toList()
+                mappedRuns
         );
     }
 
-    private GetExperimentResponseData mapToPartData(ExperimentPart part) {
+    private GetExperimentResponseData mapToGetExperimentResponseData(ExperimentRun run) {
         return new GetExperimentResponseData(
+                run.getRunNo(),
+                run.getStatus(),
+                run.getStartedAt(),
+                run.getFinishedAt()
+        );
+    }
+
+    public GetExperimentRunResponse mapToGetExperimentRunResponse(ExperimentRun run) {
+        List<GetExperimentRunResponseData> mappedParts = run.getParts().stream()
+                .map(this::mapToGetExperimentRunResponse)
+                .toList();
+
+        return new GetExperimentRunResponse(
+                run.getStatus(),
+                run.getStartedAt(),
+                run.getFinishedAt(),
+                mappedParts
+        );
+    }
+
+    private GetExperimentRunResponseData mapToGetExperimentRunResponse(ExperimentPart part) {
+        return new GetExperimentRunResponseData(
                 part.getId(),
+                part.getAlgorithm(),
+                part.getProblem(),
+                part.getBudget(),
                 part.getStatus(),
                 part.getErrorMessage(),
-                part.getProblem(),
-                part.getAlgorithm(),
-                part.getBudget(),
-                part.getParameters().stream().collect(Collectors.toMap(
-                        ExperimentPartAlgorithmParameter::getKey,
-                        ExperimentPartAlgorithmParameter::getValue,
-                        (existing, replacement) -> replacement,
-                        HashMap::new)),
-                new HashSet<>(part.getIndicators().stream().map(ExperimentPartIndicator::getName).toList()),
                 part.getStartedAt(),
                 part.getFinishedAt()
         );
     }
 
-    public GetExperimentStatusResponse mapToFullStatusResponse(ExperimentFull experimentFull) {
-        return new GetExperimentStatusResponse(experimentFull.getStatus());
+    public GetExperimentPartResponse mapToGetExperimentPartResponse(ExperimentPart part) {
+        return new GetExperimentPartResponse(
+                part.getAlgorithm(),
+                part.getParameters().stream().collect(Collectors.toMap(
+                        ExperimentPartAlgorithmParameter::getKey,
+                        ExperimentPartAlgorithmParameter::getValue,
+                        (existing, replacement) -> replacement,
+                        HashMap::new)),
+                part.getProblem(),
+                new HashSet<>(part.getIndicators().stream().map(ExperimentPartIndicator::getName).toList()),
+                part.getBudget(),
+                part.getStatus(),
+                part.getErrorMessage(),
+                part.getStartedAt(),
+                part.getFinishedAt()
+        );
     }
 
-    public GetExperimentStatusResponse mapToStatusResponse(Experiment experiment) {
+    public GetExperimentStatusResponse mapToGetExperimentStatusResponse(Experiment experiment) {
         return new GetExperimentStatusResponse(experiment.getStatus());
     }
 
-    public GetExperimentPartStatusResponse mapToPartStatusResponse(ExperimentPart part) {
+    public GetExperimentRunStatusResponse mapToGetExperimentRunStatusResponse(ExperimentRun experimentRun) {
+        return new GetExperimentRunStatusResponse(experimentRun.getStatus());
+    }
+
+    public GetExperimentPartStatusResponse mapToGetExperimentPartStatusResponse(ExperimentPart part) {
         return new GetExperimentPartStatusResponse(
                 part.getStatus(),
                 part.getErrorMessage()
         );
     }
 
-    public GetExperimentResultResponse mapToResultResponse(Experiment experiment) {
-        return experiment.getParts().stream()
+    public GetExperimentResultResponse mapToResultResponse(ExperimentRun experimentRun) {
+        return experimentRun.getParts().stream()
                 .filter(part -> part.getStatus() == ExperimentPartStatus.COMPLETED)
                 .map(this::mapToResultResponseData)
                 .collect(Collectors.collectingAndThen(

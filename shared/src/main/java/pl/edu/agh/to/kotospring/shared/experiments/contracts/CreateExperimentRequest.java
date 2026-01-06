@@ -1,14 +1,8 @@
 package pl.edu.agh.to.kotospring.shared.experiments.contracts;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.List;
 
-public class CreateExperimentRequest extends ArrayList<CreateExperimentRequestData> {
-    public CreateExperimentRequest() {
-        super();
-    }
-
-    public CreateExperimentRequest(Collection<? extends CreateExperimentRequestData> c) {
-        super(c);
-    }
-}
+public record CreateExperimentRequest(
+        List<CreateExperimentRequestData> parts,
+        long runCount
+) {}
