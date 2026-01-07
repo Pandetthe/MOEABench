@@ -36,7 +36,6 @@ public class MainMenu {
     private ResizingListView<ScenarioData> scenariosView;
     private StatusBarView statusBar;
     private GridView mainGrid;
-    private List<String> statusBarData;
 
     private EventLoop eventLoop;
 
@@ -68,14 +67,12 @@ public class MainMenu {
             if (contextStack.isEmpty()) {
                 updateGridContent(scenariosView);
                 isMainMenu = true;
-                statusBarData.clear();
                 updateStatusBar();
                 ui.setFocus(scenariosView);
             } else {
                 ScenarioContext previous = contextStack.peek();
                 updateGridContent(previous.view());
                 isMainMenu = false;
-                statusBarData.clear();
                 updateStatusBar();
                 ui.setFocus(previous.view());
             }
@@ -126,7 +123,6 @@ public class MainMenu {
         mainGrid.setColumnSize(0);
 
         updateGridContent(scenariosView);
-        statusBarData = new ArrayList<>();
         isMainMenu = true;
         updateStatusBar();
 
@@ -141,7 +137,6 @@ public class MainMenu {
     }
 
     private void openScenario(Scenario scenario) {
-        statusBarData.clear();
         scenario.configure(ui);
         isMainMenu = false;
         scenario.setNavigationConsumer(this::navigateTo);
@@ -169,7 +164,10 @@ public class MainMenu {
     }
 
     private void setStatusBar(List<String> statusBar) {
-        statusBarData.addAll(statusBar);
+        ScenarioContext current = contextStack.peek();
+        if (current != null) {
+            current.setStatusBarItems(statusBar);
+        }
         updateStatusBar();
     }
 
@@ -183,7 +181,11 @@ public class MainMenu {
         List<StatusItem> statusBarItems = new ArrayList<>();
         statusBarItems.add(isMainMenu ? StatusItem.of("CTRL-Q Exit", this::requestQuit)
                 : StatusItem.of("CTRL-Q Return", this::returnToMenu));
-        statusBarData.forEach(s -> statusBarItems.add(StatusItem.of(s)));
+
+        ScenarioContext current = contextStack.peek();
+        if (current != null) {
+            current.statusBarItems().forEach(s -> statusBarItems.add(StatusItem.of(s)));
+        }
         statusBar.setItems(statusBarItems);
     }
 

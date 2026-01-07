@@ -72,14 +72,6 @@ public abstract class Scenario {
         replace(createContext(view, onStart));
     }
 
-    protected ScenarioContext createContext(View view) {
-        return ScenarioContext.of(view, this);
-    }
-
-    protected ScenarioContext createContext(View view, Runnable onStart) {
-        return ScenarioContext.of(view, this, onStart, null);
-    }
-
     protected void wireChild(Scenario child) {
         child.configure(getTerminalUI());
         child.setNavigationConsumer(this::navigate);
@@ -87,10 +79,38 @@ public abstract class Scenario {
         child.setStatusBarConsumer(this::setStatusBar);
     }
 
+    protected void onStart() {
+    }
+
+    protected void onStop() {
+    }
+
     public abstract View build();
 
     public ScenarioContext buildContext() {
-        return ScenarioContext.of(build(), this);
+        return createContext(build());
+    }
+
+    protected ScenarioContext createContext(View view) {
+        return createContext(view, null, null);
+    }
+
+    protected ScenarioContext createContext(View view, Runnable onStart) {
+        return createContext(view, onStart, null);
+    }
+
+    protected ScenarioContext createContext(final View view, final Runnable start, final Runnable stop) {
+        return ScenarioContext.of(view, this, () -> {
+            onStart();
+            if (start != null) {
+                start.run();
+            }
+        }, () -> {
+            onStop();
+            if (stop != null) {
+                stop.run();
+            }
+        });
     }
 
     public Scenario configure(TerminalUI ui) {

@@ -40,6 +40,11 @@ public class GetExperimentScenario extends Scenario {
     }
 
     @Override
+    protected void onStart() {
+        setStatusBar(List.of("CTRL-F Search"));
+    }
+
+    @Override
     public View build() {
         try {
 
@@ -105,7 +110,7 @@ public class GetExperimentScenario extends Scenario {
         form.setSubmitAction("Apply Filters", this::handleFilterSubmit);
         configure(form);
         form.focusFirstInput();
-        navigate(ScenarioContext.of(form, this));
+        navigate(createContext(form));
     }
 
     private void handleFilterSubmit(Map<String, String> data) {
@@ -119,18 +124,17 @@ public class GetExperimentScenario extends Scenario {
             }
 
             View filteredTableView = build();
-            navigate(ScenarioContext.of(filteredTableView, this, () -> {
+            navigate(createContext(filteredTableView, () -> {
                 if (filteredTableView instanceof SimpleTableView tv) {
                     getTerminalUI().setFocus(tv);
                 }
-            }, null));
+            }));
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
             SimpleMessageView errorView = new SimpleMessageView("Filter Error",
                     "Invalid input format: " + e.getMessage());
             configure(errorView);
-            navigate(ScenarioContext.of(errorView, this, () -> getTerminalUI().setFocus(errorView),
-                    null));
+            navigate(createContext(errorView, () -> getTerminalUI().setFocus(errorView)));
         }
     }
 
@@ -140,7 +144,7 @@ public class GetExperimentScenario extends Scenario {
 
     @Override
     public ScenarioContext buildContext() {
-        return ScenarioContext.of(build(), this, null, this::resetFilters);
+        return createContext(build(), null, this::resetFilters);
     }
 
     private void handleRowSelection(MenuOption option) {
@@ -167,11 +171,7 @@ public class GetExperimentScenario extends Scenario {
 
     private void openDetailsScenario(long experimentId, long runId) {
         GetExperimentRunScenario experimentScenario = new GetExperimentRunScenario(client, experimentId, runId);
-        experimentScenario.configure(getTerminalUI());
-        ScenarioContext context = experimentScenario.buildContext();
-        experimentScenario.setNavigationConsumer(this::navigate);
-        experimentScenario.setStatusBarConsumer(this::setStatusBar);
-
-        navigate(context);
+        wireChild(experimentScenario);
+        navigate(experimentScenario.buildContext());
     }
 }
