@@ -7,7 +7,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import pl.edu.agh.to.kotospring.client.api.RegistryClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 

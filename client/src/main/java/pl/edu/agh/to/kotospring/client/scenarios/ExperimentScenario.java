@@ -7,7 +7,6 @@ import org.springframework.util.StringUtils;
 import pl.edu.agh.to.kotospring.client.models.ScenarioData;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.*;
 import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
@@ -38,7 +37,7 @@ public class ExperimentScenario extends Scenario {
     @Override
     public View build() {
         ResizingListView<ScenarioData> scenarios = new ResizingListView<>();
-        this.getTerminalUI().configure(scenarios);
+        configure(scenarios);
         scenarios.setRowHeight(3);
         scenarios.setTitle("Experiments menu");
         scenarios.setTitleAlign(HorizontalAlign.CENTER);
@@ -53,8 +52,7 @@ public class ExperimentScenario extends Scenario {
                             if (item instanceof ScenarioData scenarioData) {
                                 Scenario scenario = scenarioData.scenario();
                                 wireChild(scenario);
-                                ScenarioContext context = scenario.buildContext();
-                                navigate(context);
+                                navigate(scenario.buildContext());
                             }
                         }));
         return scenarios;
