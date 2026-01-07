@@ -3,11 +3,11 @@ package pl.edu.agh.to.kotospring.client.views.cells;
 import org.springframework.shell.component.view.control.cell.AbstractListCell;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.models.MenuOption;
 
-public class SimpleTextCell extends AbstractListCell<ExperimentOption> {
+public class SimpleTextCell extends AbstractListCell<MenuOption> {
 
-    public SimpleTextCell(ExperimentOption item) {
+    public SimpleTextCell(MenuOption item) {
         super(item);
     }
 

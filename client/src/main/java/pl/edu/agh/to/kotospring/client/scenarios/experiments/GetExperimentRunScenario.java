@@ -4,7 +4,7 @@ import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.models.MenuOption;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
@@ -97,7 +97,7 @@ public class GetExperimentRunScenario extends Scenario {
                     getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, tableView)
                             .subscribe(event -> {
                                 Object item = event.args().item();
-                                if (item instanceof ExperimentOption option) {
+                                if (item instanceof MenuOption option) {
                                     handleRowSelection(option);
                                 }
                             }));
@@ -174,9 +174,9 @@ public class GetExperimentRunScenario extends Scenario {
         return ScenarioContext.of(build(), this, null, this::resetFilters);
     }
 
-    private void handleRowSelection(ExperimentOption option) {
+    private void handleRowSelection(MenuOption option) {
         String rowText = option.name();
-        if (rowText.contains("ID") && rowText.contains("Status"))
+        if (rowText.contains("Part ID") && rowText.contains("Status"))
             return;
         if (rowText.startsWith("--"))
             return;

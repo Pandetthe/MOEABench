@@ -11,7 +11,7 @@ import org.springframework.shell.component.view.event.MouseEvent;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
 import org.springframework.util.Assert;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.models.MenuOption;
 
 public class ResizingListView<T> extends BoxView {
     private final List<T> items;
@@ -91,8 +91,21 @@ public class ResizingListView<T> extends BoxView {
             this.start = -1;
             this.pos = -1;
         } else {
-            this.start = 0;
-            this.pos = 0;
+            if (this.start < 0) {
+                this.start = 0;
+            }
+            if (this.pos < 0) {
+                this.pos = 0;
+            }
+            // Ensure pos doesn't go out of bounds if list shrunk
+            if (this.start + this.pos >= this.items.size()) {
+                this.pos = Math.max(0, this.items.size() - this.start - 1);
+            }
+            // If start itself is too far
+            if (this.start >= this.items.size()) {
+                this.start = 0;
+                this.pos = 0;
+            }
         }
         this.updateCells();
     }
@@ -188,15 +201,22 @@ public class ResizingListView<T> extends BoxView {
     private void scrollIndex(int step) {
         if (this.start >= 0 || this.pos >= 0) {
             if (step < 0) {
-                for (int i = step; i < 0; ++i) this.scrollIndex(true);
+                for (int i = step; i < 0; ++i)
+                    this.scrollIndex(true);
             } else if (step > 0) {
-                for (int i = step; i > 0; --i) this.scrollIndex(false);
+                for (int i = step; i > 0; --i)
+                    this.scrollIndex(false);
             }
         }
     }
 
-    private void up() { this.scrollIndex(-1); }
-    private void down() { this.scrollIndex(1); }
+    private void up() {
+        this.scrollIndex(-1);
+    }
+
+    private void down() {
+        this.scrollIndex(1);
+    }
 
     private T selectedItem() {
         int active = this.start + this.pos;
@@ -218,9 +238,10 @@ public class ResizingListView<T> extends BoxView {
 
     private void openSelected() {
         T item = selectedItem();
-        if (item == null) return;
+        if (item == null)
+            return;
 
-        if (autoRunOnOpen && item instanceof ExperimentOption opt && opt.action() != null) {
+        if (autoRunOnOpen && item instanceof MenuOption opt && opt.action() != null) {
             opt.action().run();
             return;
         }
@@ -232,7 +253,8 @@ public class ResizingListView<T> extends BoxView {
         int active = this.start + this.pos;
         if (this.itemStyle == ListView.ItemStyle.CHECKED) {
             boolean removed = this.selected.remove(active);
-            if (!removed) this.selected.add(active);
+            if (!removed)
+                this.selected.add(active);
         } else if (this.itemStyle == ListView.ItemStyle.RADIO) {
             this.selected.clear();
             this.selected.add(active);
@@ -272,7 +294,8 @@ public class ResizingListView<T> extends BoxView {
         }
     }
 
-    public record ResizingListViewOpenSelectedItemEvent<T>(View view, ResizingListViewItemEventArgs<T> args) implements ViewEvent {
+    public record ResizingListViewOpenSelectedItemEvent<T>(View view, ResizingListViewItemEventArgs<T> args)
+            implements ViewEvent {
         public static <T> ResizingListViewOpenSelectedItemEvent<T> of(View view, T item) {
             return new ResizingListViewOpenSelectedItemEvent<>(view, ResizingListViewItemEventArgs.of(item));
         }
