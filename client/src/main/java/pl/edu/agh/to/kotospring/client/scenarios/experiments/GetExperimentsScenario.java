@@ -37,12 +37,12 @@ public class GetExperimentsScenario extends Scenario {
     private OffsetDateTime currentStartTime = null;
     private OffsetDateTime currentEndTime = null;
 
-    private final ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider;
+    private final ObjectProvider<ExperimentOptionsScenario> experimentOptionsScenarioProvider;
 
     public GetExperimentsScenario(ExperimentClient experimentClient,
-            ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider) {
+            ObjectProvider<ExperimentOptionsScenario> experimentOptionsScenarioProvider) {
         this.experimentClient = experimentClient;
-        this.getExperimentScenarioProvider = getExperimentScenarioProvider;
+        this.experimentOptionsScenarioProvider = experimentOptionsScenarioProvider;
     }
 
     @Override
@@ -203,16 +203,16 @@ public class GetExperimentsScenario extends Scenario {
                 String idStr = columns[0].trim();
                 long experimentId = Long.parseLong(idStr);
 
-                openDetailsScenario(experimentId);
+                openOptionsScenario(experimentId);
             }
         } catch (NumberFormatException ignored) {
         }
     }
 
-    private void openDetailsScenario(long experimentId) {
-        GetExperimentScenario experimentScenario = getExperimentScenarioProvider.getObject();
-        experimentScenario.setExperimentId(experimentId);
-        wireChild(experimentScenario);
-        navigate(experimentScenario.buildContext());
+    private void openOptionsScenario(long experimentId) {
+        ExperimentOptionsScenario optionsScenario = experimentOptionsScenarioProvider.getObject();
+        optionsScenario.setExperimentId(experimentId);
+        wireChild(optionsScenario);
+        navigate(optionsScenario.buildContext());
     }
 }

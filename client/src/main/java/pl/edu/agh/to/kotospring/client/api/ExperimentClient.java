@@ -72,6 +72,9 @@ public interface ExperimentClient {
                         @PathVariable("runNo") long runNo,
                         @PathVariable("partId") long partId);
 
+        @GetExchange("/experiments/{id}/aggregate")
+        GetExperimentAggregateResponse getExperimentAggregate(@PathVariable("id") long id);
+
         @PostExchange("/experiments")
         CreateExperimentResponse createExperiment(@RequestBody CreateExperimentRequest request);
 
