@@ -1,7 +1,5 @@
 package pl.edu.agh.to.kotospring.server.controllers;
 
-import org.apache.coyote.BadRequestException;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
@@ -12,6 +10,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
+import io.swagger.v3.oas.annotations.Operation;
 
 import java.time.OffsetDateTime;
 
@@ -55,6 +54,13 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
+    @Operation(summary = "Get experiment aggregations")
+    @GetMapping("{id}/aggregate")
+    public ResponseEntity<GetExperimentAggregateResponse> getExperimentAggregate(
+            @PathVariable long id) {
+        return ResponseEntity.ok(experimentService.getExperimentAggregate(id));
+    }
+
     @GetMapping("{id}/{runNo}")
     public ResponseEntity<?> getExperimentRun(
             @PathVariable long id,
@@ -71,7 +77,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/{runNo}/{partId}")
-    public ResponseEntity<?> getExperimentPart(@PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
+    public ResponseEntity<?> getExperimentPart(@PathVariable long id, @PathVariable long runNo,
+            @PathVariable long partId) {
         return experimentService.getExperimentPart(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartResponse)
                 .map(ResponseEntity::ok)
@@ -95,7 +102,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/{runNo}/{partId}/status")
-    public ResponseEntity<?> getExperimentPartStatus(@PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
+    public ResponseEntity<?> getExperimentPartStatus(@PathVariable long id, @PathVariable long runNo,
+            @PathVariable long partId) {
         return experimentService.getExperimentPartStatus(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartStatusResponse)
                 .map(ResponseEntity::ok)
@@ -134,8 +142,10 @@ public final class ExperimentController {
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment " + id + " or Run " + runNo + " not found"));
     }
+
     @GetMapping("{id}/{runNo}/{partId}/result")
-    public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
+    public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long runNo,
+            @PathVariable long partId) {
         return experimentService.getExperimentPartResult(id, runNo, partId)
                 .map(part -> {
                     if (part.getStatus() == ExperimentPartStatus.QUEUED ||

@@ -3,7 +3,8 @@ package pl.edu.agh.to.kotospring.server.entities;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "experiment_part_indicator", uniqueConstraints = @UniqueConstraint(columnNames = {"experiment_part_id", "name"}))
+@Table(name = "experiment_part_indicator", uniqueConstraints = @UniqueConstraint(columnNames = { "experiment_part_id",
+        "name" }))
 public class ExperimentPartIndicator {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -12,7 +13,7 @@ public class ExperimentPartIndicator {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "experiment_part_id", nullable = false)
-    private ExperimentPart experimentPart;
+    private ExperimentPartExecution experimentPart;
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -20,18 +21,23 @@ public class ExperimentPartIndicator {
     @Column(name = "value", nullable = false)
     private double value;
 
-    public ExperimentPartIndicator() {}
+    public ExperimentPartIndicator() {
+    }
+
     public ExperimentPartIndicator(String name, double value) {
         this.name = name;
         this.value = value;
     }
 
-    public Long getId() { return id; }
+    public Long getId() {
+        return id;
+    }
 
-    public ExperimentPart getExperimentPart() {
+    public ExperimentPartExecution getExperimentPart() {
         return experimentPart;
     }
-    public void setExperimentPart(ExperimentPart experimentPart) {
+
+    public void setExperimentPart(ExperimentPartExecution experimentPart) {
         this.experimentPart = experimentPart;
         if (experimentPart != null && !experimentPart.getIndicators().contains(this)) {
             experimentPart.addIndicator(this);
@@ -41,6 +47,7 @@ public class ExperimentPartIndicator {
     public String getName() {
         return name;
     }
+
     public void setName(String name) {
         this.name = name;
     }
@@ -48,6 +55,7 @@ public class ExperimentPartIndicator {
     public double getValue() {
         return value;
     }
+
     public void setValue(double value) {
         this.value = value;
     }

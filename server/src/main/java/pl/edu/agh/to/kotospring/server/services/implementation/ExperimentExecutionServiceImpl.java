@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentStatusService;
 
@@ -16,12 +16,12 @@ import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentStatusServi
 public class ExperimentExecutionServiceImpl implements ExperimentExecutionService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionServiceImpl.class);
 
-    private final ExperimentPartRepository experimentPartRepository;
+    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
     private final ExperimentStatusService experimentStatusService;
 
-    public ExperimentExecutionServiceImpl(ExperimentPartRepository experimentPartRepository,
-                                          ExperimentStatusService experimentStatusService) {
-        this.experimentPartRepository = experimentPartRepository;
+    public ExperimentExecutionServiceImpl(ExperimentPartExecutionRepository experimentPartExecutionRepository,
+            ExperimentStatusService experimentStatusService) {
+        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
         this.experimentStatusService = experimentStatusService;
     }
 
@@ -31,8 +31,8 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         Long partId = queueData.getExperimentPartId();
         logger.info("Execution starting for ExperimentPart {}", partId);
 
-        if (!experimentPartRepository.existsById(partId)) {
-            logger.error("ExperimentPart {} does not exist! Aborting...", partId);
+        if (!experimentPartExecutionRepository.existsById(partId)) {
+            logger.error("ExperimentPartExecution {} does not exist! Aborting...", partId);
             return;
         }
 

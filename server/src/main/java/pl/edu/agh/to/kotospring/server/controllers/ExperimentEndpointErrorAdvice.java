@@ -8,10 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRunRepository;
 import pl.edu.agh.to.kotospring.shared.experiments.ErrorResponse;
@@ -23,22 +23,20 @@ import java.util.regex.Pattern;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ExperimentEndpointErrorAdvice {
-    private static final Pattern FULL_PATH_PATTERN =
-            Pattern.compile("^/experiments/(\\d+)/(\\d+)/(\\d+)(?:/.*)?$");
+    private static final Pattern FULL_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)/(\\d+)/(\\d+)(?:/.*)?$");
 
-    private static final Pattern EXPERIMENT_PATH_PATTERN =
-            Pattern.compile("^/experiments/(\\d+)(?:/.*)?$");
+    private static final Pattern EXPERIMENT_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)(?:/.*)?$");
 
     private final ExperimentRepository experimentRepository;
     private final ExperimentRunRepository experimentRunRepository;
-    private final ExperimentPartRepository experimentPartRepository;
+    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
 
     public ExperimentEndpointErrorAdvice(ExperimentRepository experimentRepository,
-                                         ExperimentRunRepository experimentRunRepository,
-                                         ExperimentPartRepository experimentPartRepository) {
+            ExperimentRunRepository experimentRunRepository,
+            ExperimentPartExecutionRepository experimentPartExecutionRepository) {
         this.experimentRepository = experimentRepository;
         this.experimentRunRepository = experimentRunRepository;
-        this.experimentPartRepository = experimentPartRepository;
+        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
     }
 
     @ExceptionHandler(NotFoundException.class)
@@ -70,7 +68,7 @@ public class ExperimentEndpointErrorAdvice {
         boolean expExists = experimentRepository.existsById(expId);
         RunId runId = new RunId(expId, runNo);
         boolean runExists = experimentRunRepository.existsById(runId);
-        Optional<ExperimentPart> partOpt = experimentPartRepository.findById(partId);
+        Optional<ExperimentPartExecution> partOpt = experimentPartExecutionRepository.findById(partId);
 
         if (!expExists) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -87,7 +85,7 @@ public class ExperimentEndpointErrorAdvice {
                     .body(new ErrorResponse("Experiment part " + partId + " does not exist"));
         }
 
-        ExperimentPart part = partOpt.get();
+        ExperimentPartExecution part = partOpt.get();
         RunId actualRunId = part.getExperimentRun().getId();
 
         if (!actualRunId.equals(runId)) {

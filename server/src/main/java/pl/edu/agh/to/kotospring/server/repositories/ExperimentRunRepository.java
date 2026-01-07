@@ -14,28 +14,30 @@ import java.util.Optional;
 @Repository
 public interface ExperimentRunRepository extends JpaRepository<ExperimentRun, RunId> {
     @Query("""
-        select distinct ru from ExperimentRun ru
-        left join fetch ru.parts pa
-        left join fetch pa.parameters par
-        left join fetch pa.indicators ind
-        where ru.id = :id
-        """)
+            select distinct ru from ExperimentRun ru
+            left join fetch ru.parts pa
+            left join fetch pa.experimentPart def
+            left join fetch def.parameters par
+            left join fetch pa.indicators ind
+            where ru.id = :id
+            """)
     Optional<ExperimentRun> findWithPartsById(RunId id);
 
     @Query("""
-        select distinct ru from ExperimentRun ru
-        left join fetch ru.parts pa
-        left join fetch pa.indicators ind
-        left join fetch pa.solutions sol
-        left join fetch sol.objectives obj
-        left join fetch sol.constraints con
-        left join fetch sol.variables var
-        where ru.id = :id
-        """)
+            select distinct ru from ExperimentRun ru
+            left join fetch ru.parts pa
+            left join fetch pa.indicators ind
+            left join fetch pa.solutions sol
+            left join fetch sol.objectives obj
+            left join fetch sol.constraints con
+            left join fetch sol.variables var
+            where ru.id = :id
+            """)
     Optional<ExperimentRun> findWithFullSolutionById(RunId id);
 
     Optional<ExperimentRunStatus> findStatusById(RunId id);
 
     List<ExperimentRun> findAllByIdExperimentId(Long experimentId);
+
     long countByIdExperimentIdAndStatusIn(Long experimentId, Collection<ExperimentRunStatus> statuses);
 }

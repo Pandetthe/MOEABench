@@ -29,16 +29,18 @@ public class ExperimentRun {
     private OffsetDateTime finishedAt;
 
     @OneToMany(mappedBy = "experimentRun", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final Set<ExperimentPart> parts = new HashSet<>();
+    private final Set<ExperimentPartExecution> parts = new HashSet<>();
 
     public ExperimentRun() {
         this.status = ExperimentRunStatus.QUEUED;
         this.id = new RunId();
     }
+
     public ExperimentRun(Experiment experiment, Long runNo) {
         this();
         if (experiment == null || experiment.getId() == null) {
-            throw new IllegalStateException("Experiment must be persisted and must have id before creating ExperimentRun!");
+            throw new IllegalStateException(
+                    "Experiment must be persisted and must have id before creating ExperimentRun!");
         }
         this.id = new RunId(experiment.getId(), runNo);
         this.experiment = experiment;
@@ -47,10 +49,14 @@ public class ExperimentRun {
     public RunId getId() {
         return id;
     }
+
     public Long getExperimentId() {
         return this.id.getExperimentId();
     }
-    public Long getRunNo() { return this.id.getRunNo(); }
+
+    public Long getRunNo() {
+        return this.id.getRunNo();
+    }
 
     public void setExperiment(Experiment experiment) {
         this.experiment = experiment;
@@ -61,11 +67,15 @@ public class ExperimentRun {
             this.id.setExperimentId(experiment.getId());
         }
     }
-    public Experiment getExperiment() { return experiment; }
+
+    public Experiment getExperiment() {
+        return experiment;
+    }
 
     public void setStatus(ExperimentRunStatus status) {
         this.status = status;
     }
+
     public ExperimentRunStatus getStatus() {
         return this.status;
     }
@@ -73,6 +83,7 @@ public class ExperimentRun {
     public void setStartedAt(OffsetDateTime startedAt) {
         this.startedAt = startedAt;
     }
+
     public OffsetDateTime getStartedAt() {
         return startedAt;
     }
@@ -80,14 +91,16 @@ public class ExperimentRun {
     public void setFinishedAt(OffsetDateTime finishedAt) {
         this.finishedAt = finishedAt;
     }
+
     public OffsetDateTime getFinishedAt() {
         return finishedAt;
     }
 
-    public Set<ExperimentPart> getParts() {
+    public Set<ExperimentPartExecution> getParts() {
         return Collections.unmodifiableSet(parts);
     }
-    public void addPart(ExperimentPart part) {
+
+    public void addPart(ExperimentPartExecution part) {
         if (part == null) {
             throw new IllegalArgumentException("part must not be null");
         }
@@ -95,8 +108,10 @@ public class ExperimentRun {
             part.setExperimentRun(this);
         }
     }
-    public void removePart(ExperimentPart part) {
-        if (part == null) return;
+
+    public void removePart(ExperimentPartExecution part) {
+        if (part == null)
+            return;
         if (this.parts.remove(part)) {
             part.setExperimentRun(null);
         }

@@ -31,7 +31,7 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
 
     private final ExperimentRepository experimentRepository;
     private final ExperimentRunRepository experimentRunRepository;
-    private final ExperimentPartRepository experimentPartRepository;
+    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
     private final EntityManager entityManager;
@@ -40,24 +40,22 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
             ExperimentStatus.IN_PROGRESS,
             ExperimentStatus.SUCCESS,
             ExperimentStatus.PARTIAL_SUCCESS,
-            ExperimentStatus.FAILED
-    );
+            ExperimentStatus.FAILED);
 
     private static final Set<ExperimentRunStatus> ACTIVE_OR_FINISHED_STATUSES_OF_RUN = EnumSet.of(
             ExperimentRunStatus.IN_PROGRESS,
             ExperimentRunStatus.SUCCESS,
             ExperimentRunStatus.PARTIAL_SUCCESS,
-            ExperimentRunStatus.FAILED
-    );
+            ExperimentRunStatus.FAILED);
 
     public ExperimentStatusServiceImpl(ExperimentRunRepository experimentRunRepository,
-                                       ExperimentPartRepository experimentPartRepository,
-                                       ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
-                                       ExperimentPartSolutionRepository experimentPartSolutionRepository,
-                                       ExperimentRepository experimentRepository,
-                                       EntityManager entityManager) {
+            ExperimentPartExecutionRepository experimentPartExecutionRepository,
+            ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
+            ExperimentPartSolutionRepository experimentPartSolutionRepository,
+            ExperimentRepository experimentRepository,
+            EntityManager entityManager) {
         this.experimentRunRepository = experimentRunRepository;
-        this.experimentPartRepository = experimentPartRepository;
+        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
         this.experimentPartSolutionRepository = experimentPartSolutionRepository;
         this.experimentRepository = experimentRepository;
@@ -67,16 +65,18 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsStarted(Long partId) {
-        ExperimentPart part = getPartOrThrow(partId);
+        ExperimentPartExecution part = getPartOrThrow(partId);
         ExperimentRun experimentRun = part.getExperimentRun();
         OffsetDateTime now = OffsetDateTime.now();
         if (!ACTIVE_OR_FINISHED_STATUSES_OF_RUN.contains(experimentRun.getStatus())) {
-            logger.info("Starting run {} of experiment {} triggered by start of part {}", experimentRun.getRunNo(), experimentRun.getExperimentId(), partId);
+            logger.info("Starting run {} of experiment {} triggered by start of part {}", experimentRun.getRunNo(),
+                    experimentRun.getExperimentId(), partId);
             experimentRun.setStatus(ExperimentRunStatus.IN_PROGRESS);
             experimentRun.setStartedAt(now);
             Experiment experiment = experimentRun.getExperiment();
             if (!ACTIVE_OR_FINISHED_STATUSES_OF_EXPERIMENT.contains(experiment.getStatus())) {
-                logger.info("Starting experiment {} triggered by start of run {} of part {}", experimentRun.getExperimentId(), experimentRun.getRunNo(), partId);
+                logger.info("Starting experiment {} triggered by start of run {} of part {}",
+                        experimentRun.getExperimentId(), experimentRun.getRunNo(), partId);
                 experiment.setStatus(ExperimentStatus.IN_PROGRESS);
                 experiment.setStartedAt(now);
                 experimentRepository.saveAndFlush(experiment);
@@ -85,48 +85,51 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         }
         part.setStatus(ExperimentPartStatus.RUNNING);
         part.setStartedAt(now);
-        experimentPartRepository.saveAndFlush(part);
+        experimentPartExecutionRepository.saveAndFlush(part);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markPartAsCompleted(Long partId, Indicators.IndicatorValues indicatorValues, NondominatedPopulation result) {
-        ExperimentPart part = getPartOrThrow(partId);
+    public void markPartAsCompleted(Long partId, Indicators.IndicatorValues indicatorValues,
+            NondominatedPopulation result) {
+        ExperimentPartExecution part = getPartOrThrow(partId);
         processIndicators(part, indicatorValues);
         saveSolutions(part, result);
         part.setStatus(ExperimentPartStatus.COMPLETED);
         part.setFinishedAt(OffsetDateTime.now());
-        experimentPartRepository.saveAndFlush(part);
+        experimentPartExecutionRepository.saveAndFlush(part);
         checkAndFinalizeExperimentRun(part.getExperimentRun().getId());
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsFailed(Long partId, String errorMessage) {
-        ExperimentPart part = getPartOrThrow(partId);
+        ExperimentPartExecution part = getPartOrThrow(partId);
         part.setStatus(ExperimentPartStatus.FAILED);
         part.setFinishedAt(OffsetDateTime.now());
         if (errorMessage != null && errorMessage.length() > 2000) {
             errorMessage = errorMessage.substring(0, 2000) + "...";
         }
         part.setErrorMessage(errorMessage);
-        experimentPartRepository.saveAndFlush(part);
+        experimentPartExecutionRepository.saveAndFlush(part);
         checkAndFinalizeExperimentRun(part.getExperimentRun().getId());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void checkAndFinalizeExperimentRun(RunId runId) {
-        Experiment experiment = entityManager.find(Experiment.class, runId.getExperimentId(), LockModeType.PESSIMISTIC_WRITE);
+        Experiment experiment = entityManager.find(Experiment.class, runId.getExperimentId(),
+                LockModeType.PESSIMISTIC_WRITE);
         ExperimentRun run = entityManager.find(ExperimentRun.class, runId, LockModeType.PESSIMISTIC_WRITE);
-        List<ExperimentPart> parts = experimentPartRepository.findAllByExperimentRunId(runId);
-        boolean isStillRunning = parts.stream().anyMatch(p -> p.getStatus() == ExperimentPartStatus.RUNNING || p.getStatus() == ExperimentPartStatus.QUEUED);
+        List<ExperimentPartExecution> parts = experimentPartExecutionRepository.findAllByExperimentRunId(runId);
+        boolean isStillRunning = parts.stream().anyMatch(
+                p -> p.getStatus() == ExperimentPartStatus.RUNNING || p.getStatus() == ExperimentPartStatus.QUEUED);
         if (isStillRunning) {
             return;
         }
         long totalCount = parts.size();
         long completedCount = parts.stream().filter(p -> p.getStatus() == ExperimentPartStatus.COMPLETED).count();
         OffsetDateTime latestFinished = parts.stream()
-                .map(ExperimentPart::getFinishedAt)
+                .map(ExperimentPartExecution::getFinishedAt)
                 .filter(Objects::nonNull)
                 .max(Comparator.naturalOrder())
                 .orElse(OffsetDateTime.now());
@@ -134,13 +137,15 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         run.setStatus(finalStatus);
         run.setFinishedAt(latestFinished);
         experimentRunRepository.saveAndFlush(run);
-        logger.info("Run {} of experiment {} finished with status {}", runId.getRunNo(), runId.getExperimentId(), finalStatus);
+        logger.info("Run {} of experiment {} finished with status {}", runId.getRunNo(), runId.getExperimentId(),
+                finalStatus);
         internalFinalizeExperiment(experiment);
     }
 
     private void internalFinalizeExperiment(Experiment experiment) {
         List<ExperimentRun> runs = experimentRunRepository.findAllByIdExperimentId(experiment.getId());
-        boolean isStillRunning = runs.stream().anyMatch(r -> r.getStatus() == ExperimentRunStatus.IN_PROGRESS || r.getStatus() == ExperimentRunStatus.QUEUED);
+        boolean isStillRunning = runs.stream().anyMatch(
+                r -> r.getStatus() == ExperimentRunStatus.IN_PROGRESS || r.getStatus() == ExperimentRunStatus.QUEUED);
         if (isStillRunning) {
             return;
         }
@@ -179,12 +184,12 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         }
     }
 
-    private ExperimentPart getPartOrThrow(Long partId) throws IllegalStateException {
-        return experimentPartRepository.findById(partId)
-                .orElseThrow(() -> new IllegalStateException("ExperimentPart not found: " + partId));
+    private ExperimentPartExecution getPartOrThrow(Long partId) throws IllegalStateException {
+        return experimentPartExecutionRepository.findById(partId)
+                .orElseThrow(() -> new IllegalStateException("ExperimentPartExecution not found: " + partId));
     }
 
-    private void processIndicators(ExperimentPart part, Indicators.IndicatorValues indicatorValues) {
+    private void processIndicators(ExperimentPartExecution part, Indicators.IndicatorValues indicatorValues) {
         Set<ExperimentPartIndicator> existingIndicators = part.getIndicators();
         existingIndicators.forEach(indicator -> {
             String name = indicator.getName();
@@ -195,7 +200,7 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         });
     }
 
-    private void saveSolutions(ExperimentPart part, NondominatedPopulation result) {
+    private void saveSolutions(ExperimentPartExecution part, NondominatedPopulation result) {
         List<ExperimentPartSolution> solutionEntities = new ArrayList<>();
         for (Solution solution : result) {
             Map<String, String> variablesMap = new HashMap<>();
@@ -213,7 +218,8 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
                 Constraint constraint = solution.getConstraint(i);
                 constraintsMap.put(Constraint.getNameOrDefault(constraint, i), constraint.getValue());
             }
-            ExperimentPartSolution solutionEntity = new ExperimentPartSolution(variablesMap, objectivesMap, constraintsMap);
+            ExperimentPartSolution solutionEntity = new ExperimentPartSolution(variablesMap, objectivesMap,
+                    constraintsMap);
             solutionEntity.setExperimentPart(part);
             solutionEntities.add(solutionEntity);
         }

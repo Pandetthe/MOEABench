@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.population.NondominatedPopulation;
@@ -19,18 +20,20 @@ import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRunRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.Map;
 
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
@@ -41,20 +44,23 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final IndicatorRegistryService indicatorRegistry;
     private final ExperimentRunRepository experimentRunRepository;
     private final ExperimentPartRepository experimentPartRepository;
+    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
     private final ExperimentExecutionService executionService;
     private final ExperimentRepository experimentRepository;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
-                                 AlgorithmRegistryService algorithmRegistry,
-                                 IndicatorRegistryService indicatorRegistry,
-                                 ExperimentRunRepository experimentRunRepository,
-                                 ExperimentPartRepository experimentPartRepository,
-                                 ExperimentExecutionService executionService, ExperimentRepository experimentRepository) {
+            AlgorithmRegistryService algorithmRegistry,
+            IndicatorRegistryService indicatorRegistry,
+            ExperimentRunRepository experimentRunRepository,
+            ExperimentPartRepository experimentPartRepository,
+            ExperimentPartExecutionRepository experimentPartExecutionRepository,
+            ExperimentExecutionService executionService, ExperimentRepository experimentRepository) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
         this.experimentRunRepository = experimentRunRepository;
         this.experimentPartRepository = experimentPartRepository;
+        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
         this.executionService = executionService;
         this.experimentRepository = experimentRepository;
     }
@@ -62,34 +68,56 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional
     public Experiment createExperiment(CreateExperimentRequest request) {
-        logger.info("Received request to create new full experiment with {} runs, {} parts each", request.runCount(), request.parts().size());
+        logger.info("Received request to create new full experiment with {} runs, {} parts each", request.runCount(),
+                request.parts().size());
         Experiment experiment = new Experiment(OffsetDateTime.now(), request.runCount());
         experimentRepository.saveAndFlush(experiment);
+
+        List<Pair<ExperimentPart, CreateExperimentRequestData>> definitions = request.parts().stream()
+                .map(this::createExperimentPartDefinition)
+                .toList();
+
+        definitions.forEach(pair -> experiment.addPart(pair.getFirst()));
+        experimentPartRepository.saveAllAndFlush(definitions.stream().map(Pair::getFirst).toList());
+
         List<QueueData> dataToQueue = new ArrayList<>();
 
         try {
             for (long run = 1; run <= request.runCount(); run++) {
-
-                List<Pair<ExperimentPart, QueueData>> experimentParts = request.parts().stream()
-                        .map(this::createExperimentPart)
-                        .toList();
-
                 ExperimentRun experimentRun = new ExperimentRun(experiment, run);
                 experimentRunRepository.saveAndFlush(experimentRun);
 
-                for (Pair<ExperimentPart, QueueData> pair : experimentParts) {
-                    ExperimentPart newPart = pair.getFirst();
-                    experimentRun.addPart(newPart);
+                List<ExperimentPartExecution> runExecutions = new ArrayList<>();
+
+                for (Pair<ExperimentPart, CreateExperimentRequestData> pair : definitions) {
+                    ExperimentPart definition = pair.getFirst();
+                    CreateExperimentRequestData requestData = pair.getSecond();
+
+                    ExperimentPartExecution execution = new ExperimentPartExecution(definition);
+                    experimentRun.addPart(execution);
+
+                    for (String indicatorName : requestData.indicators()) {
+                        ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, 0.0);
+                        execution.addIndicator(indicator);
+                    }
+
+                    runExecutions.add(execution);
                 }
 
-                experimentPartRepository.saveAllAndFlush(experimentParts.stream().map(Pair::getFirst).toList());
+                experimentPartExecutionRepository.saveAllAndFlush(runExecutions);
 
-                for (Pair<ExperimentPart, QueueData> pair : experimentParts) {
-                    pair.getSecond().setExperimentPartId(pair.getFirst().getId());
-                    dataToQueue.add(pair.getSecond());
+                for (int i = 0; i < definitions.size(); i++) {
+                    ExperimentPart definition = definitions.get(i).getFirst();
+                    CreateExperimentRequestData requestData = definitions.get(i).getSecond();
+                    ExperimentPartExecution execution = runExecutions.get(i);
+
+                    QueueData queueData = createQueueData(requestData, definition);
+                    queueData.setExperimentPartId(execution.getId());
+                    dataToQueue.add(queueData);
                 }
 
-                logger.info("Successfully created and queued new experiment run number {} for experiment {}", experimentRun.getRunNo(), experimentRun.getExperimentId());
+                logger.info("Successfully created and queued new experiment run number {} for experiment {}",
+                        experimentRun.getRunNo(), experimentRun.getExperimentId());
             }
 
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -111,55 +139,53 @@ public class ExperimentServiceImpl implements ExperimentService {
         }
     }
 
-    private Pair<ExperimentPart, QueueData> createExperimentPart(CreateExperimentRequestData partRequest) {
-        logger.debug("Preparing ExperimentPart: Problem={}, Algorithm={}", partRequest.problem(), partRequest.algorithm());
+    private Pair<ExperimentPart, CreateExperimentRequestData> createExperimentPartDefinition(
+            CreateExperimentRequestData partRequest) {
+        logger.debug("Preparing ExperimentPart Definition: Problem={}, Algorithm={}", partRequest.problem(),
+                partRequest.algorithm());
 
         String problemName = partRequest.problem();
         String algorithmName = partRequest.algorithm();
         var algorithmParameters = algorithmRegistry.createTypedProperties(partRequest.algorithmParameters());
-        var indicators = partRequest.indicators();
-        int budget = partRequest.budget();
 
         Problem problem = problemRegistry.getProblem(problemName)
-                .orElseThrow(() -> {
-                    logger.info("Problem not found: {}", problemName);
-                    return new ProblemNotFoundException(problemName);
-                });
-        NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName)
-                .orElseThrow(() -> {
-                    logger.info("Reference set for problem not found: {}", problemName);
-                    return new ProblemNotFoundException(problemName);
-                });
-        Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem)
-                .orElseThrow(() -> {
-                    logger.info("Algorithm not found: {}", algorithmName);
-                    return new AlgorithmNotFoundException(algorithmName);
-                });
-        Indicators indicatorsObj = indicatorRegistry.getIndicators(indicators, problem, referenceSet);
+                .orElseThrow(() -> new ProblemNotFoundException(problemName));
+
+        algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem)
+                .orElseThrow(() -> new AlgorithmNotFoundException(algorithmName));
 
         ExperimentPart experimentPart = new ExperimentPart(
                 problemName,
                 algorithmName,
-                budget
-        );
+                partRequest.budget());
         for (String key : algorithmParameters.keySet()) {
             String value = algorithmParameters.getString(key);
             ExperimentPartAlgorithmParameter parameterEntity = new ExperimentPartAlgorithmParameter(key, value);
             experimentPart.addParameter(parameterEntity);
         }
         algorithmParameters.clearAccessedProperties();
-        for (String indicatorName : partRequest.indicators()) {
-            ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, 0.0);
-            experimentPart.addIndicator(indicator);
-        }
-        QueueData queueData = new QueueData(algorithm, indicatorsObj, budget);
-        return Pair.of(experimentPart, queueData);
+
+        return Pair.of(experimentPart, partRequest);
+    }
+
+    private QueueData createQueueData(CreateExperimentRequestData partRequest, ExperimentPart definition) {
+        String problemName = definition.getProblem();
+        String algorithmName = definition.getAlgorithm();
+        Problem problem = problemRegistry.getProblem(problemName).orElseThrow();
+        NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName).orElseThrow();
+
+        var algorithmParameters = algorithmRegistry.createTypedProperties(partRequest.algorithmParameters());
+
+        Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem).orElseThrow();
+        Indicators indicatorsObj = indicatorRegistry.getIndicators(partRequest.indicators(), problem, referenceSet);
+
+        return new QueueData(algorithm, indicatorsObj, definition.getBudget());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Experiment> getExperiments(String algorithm, String problem, String indicator,
-                                           ExperimentStatus status, OffsetDateTime start, OffsetDateTime end) {
+            ExperimentStatus status, OffsetDateTime start, OffsetDateTime end) {
         return experimentRepository.findAllFiltered(algorithm, problem, indicator, status, start, end);
     }
 
@@ -169,7 +195,8 @@ public class ExperimentServiceImpl implements ExperimentService {
         logger.debug("Fetching details for experiment ID {}", id);
         return experimentRepository.findWithRunsById(id)
                 .map(exp -> {
-                    if (status == null) return exp;
+                    if (status == null)
+                        return exp;
                     exp.getRuns().removeIf(run -> run.getStatus() != status);
                     return exp;
                 });
@@ -186,7 +213,7 @@ public class ExperimentServiceImpl implements ExperimentService {
             return Optional.empty();
         }
 
-        List<ExperimentPart> filteredParts = experimentPartRepository.findFilteredParts(
+        List<ExperimentPartExecution> filteredParts = experimentPartExecutionRepository.findFilteredParts(
                 runId, algorithm, problem, partStatus, indicator);
 
         return experimentRunRepository.findById(runId).map(run -> {
@@ -199,12 +226,12 @@ public class ExperimentServiceImpl implements ExperimentService {
         });
     }
 
-
     @Override
     @Transactional(readOnly = true)
-    public Optional<ExperimentPart> getExperimentPart(long id, long runNo, long partId) {
-        logger.debug("Fetching details for experiment part ID {} (Experiment ID {} run {})", partId, id, runNo);
-        return experimentPartRepository.findByExperimentIdAndId(new RunId(id, runNo), partId);
+    public Optional<ExperimentPartExecution> getExperimentPart(long id, long runNo, long partId) {
+        logger.debug("Fetching details for experiment part execution ID {} (Experiment ID {} run {})", partId, id,
+                runNo);
+        return experimentPartExecutionRepository.findByExperimentIdAndId(new RunId(id, runNo), partId);
     }
 
     @Override
@@ -222,7 +249,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public Optional<PartStatusInfo> getExperimentPartStatus(long id, long runNo, long partId) {
-        return experimentPartRepository.findStatusInfoById(new RunId(id, runNo), partId);
+        return experimentPartExecutionRepository.findStatusInfoById(new RunId(id, runNo), partId);
     }
 
     @Override
@@ -239,12 +266,11 @@ public class ExperimentServiceImpl implements ExperimentService {
         return experimentRunRepository.findWithFullSolutionById(new RunId(id, runNo));
     }
 
-
     @Override
     @Transactional(readOnly = true)
-    public Optional<ExperimentPart> getExperimentPartResult(long id, long runNo, long partId) {
+    public Optional<ExperimentPartExecution> getExperimentPartResult(long id, long runNo, long partId) {
         logger.debug("Fetching results for experiment part ID {}", partId);
-        return experimentPartRepository.findWithFullSolutionById(new RunId(id, runNo), partId);
+        return experimentPartExecutionRepository.findWithFullSolutionById(new RunId(id, runNo), partId);
     }
 
     @Override
@@ -288,5 +314,66 @@ public class ExperimentServiceImpl implements ExperimentService {
             logger.info("Failed to delete experiment ID {} run {}: Experiment not found", id, runNo);
             return false;
         });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetExperimentAggregateResponse getExperimentAggregate(
+            long experimentId) {
+        logger.debug("Calculating aggregate statistics for experiment ID {}", experimentId);
+        List<ExperimentPart> definitions = experimentPartRepository.findAllByExperimentId(experimentId);
+
+        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
+
+        for (ExperimentPart definition : definitions) {
+
+            Experiment experiment = experimentRepository.findWithRunsById(experimentId).orElseThrow(
+                    () -> new pl.edu.agh.to.kotospring.server.exceptions.NotFoundException("Experiment not found"));
+
+            List<ExperimentPartExecution> executionsForDef = new ArrayList<>();
+            for (ExperimentRun run : experiment.getRuns()) {
+                run.getParts().stream()
+                        .filter(p -> p.getExperimentPart().equals(definition))
+                        .forEach(executionsForDef::add);
+            }
+
+            Set<String> indicatorNames = executionsForDef.stream()
+                    .flatMap(e -> e.getIndicators().stream())
+                    .map(ExperimentPartIndicator::getName)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            Map<String, pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentAggregateDataIndicator> indicatorsMap = new java.util.HashMap<>();
+
+            for (String indicator : indicatorNames) {
+                DescriptiveStatistics stats = new org.apache.commons.math3.stat.descriptive.DescriptiveStatistics();
+                executionsForDef.stream()
+                        .flatMap(e -> e.getIndicators().stream())
+                        .filter(i -> i.getName().equals(indicator))
+                        .forEach(i -> stats.addValue(i.getValue()));
+
+                if (stats.getN() > 0) {
+                    indicatorsMap.put(indicator,
+                            new GetExperimentAggregateDataIndicator(
+                                    stats.getMin(),
+                                    stats.getMax(),
+                                    stats.getMean(),
+                                    stats.getPercentile(50), // Median
+                                    stats.getPercentile(75) - stats.getPercentile(25), // IQR
+                                    stats.getStandardDeviation()));
+                }
+            }
+
+            aggregateDataList.add(new GetExperimentAggregateData(
+                    definition.getAlgorithm(),
+                    definition.getParameters().stream().collect(java.util.stream.Collectors.toMap(
+                            ExperimentPartAlgorithmParameter::getKey,
+                            ExperimentPartAlgorithmParameter::getValue)),
+                    definition.getProblem(),
+                    indicatorsMap,
+                    definition.getBudget()));
+        }
+
+        return new GetExperimentAggregateResponse(
+                aggregateDataList);
     }
 }
