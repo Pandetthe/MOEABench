@@ -7,6 +7,8 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.CenteredButtonView;
+import pl.edu.agh.to.kotospring.client.views.FixedGridView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartResponse;
@@ -40,33 +42,45 @@ public class GetExperimentPartScenario extends Scenario {
         try {
             GetExperimentPartResponse response = client.getExperimentPart(experimentId, runId, partId);
 
-            List<String> headers = List.of("Status", "Algorithm", "Problem", "Indicator", "Started", "Finished");
-            List<Integer> widths = List.of(13, 10, 10, 23, 20, 20);
+            FixedGridView grid = new FixedGridView();
+            configure(grid);
+            grid.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runId + ", Part ID: " + partId);
+            grid.setShowBorders(true);
+
+            grid.setRowSize(0, 0);
+            grid.setRowSize(1, 1);
+
+            List<String> headers = List.of("Property", "Value");
+            List<Integer> widths = List.of(20, 60);
             List<List<String>> rows = new ArrayList<>();
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd.MM.yyyy")
                     .withZone(ZoneId.systemDefault());
 
             if (response != null) {
-                List<String> row = new ArrayList<>();
-                row.add(String.valueOf(response.status()));
-                row.add(response.algorithm());
-                row.add(response.problem());
+                rows.add(List.of("Status", String.valueOf(response.status())));
+                rows.add(List.of("Algorithm", response.algorithm() != null ? response.algorithm() : "-"));
+                rows.add(List.of("Problem", response.problem() != null ? response.problem() : "-"));
                 Set<String> indicators = response.indicators();
-                row.add(indicators != null ? String.join(",", indicators) : "-");
-                row.add(response.startedAt() != null ? formatter.format(response.startedAt()) : "-");
-                row.add(response.finishedAt() != null ? formatter.format(response.finishedAt()) : "-");
-                rows.add(row);
-
+                rows.add(List.of("Indicators", indicators != null ? String.join(", ", indicators) : "-"));
+                rows.add(List.of("Started At",
+                        response.startedAt() != null ? formatter.format(response.startedAt()) : "-"));
+                rows.add(List.of("Finished At",
+                        response.finishedAt() != null ? formatter.format(response.finishedAt()) : "-"));
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
-            tableView.setTitle(
-                    "Details for Experiment ID: " + experimentId + ", Run No: " + runId + ", Part ID: " + partId);
-            tableView.setAutoRunOnOpen(false);
+            tableView.setEnableWrapping(false);
             configure(tableView);
+            grid.addItem(tableView, 0, 0, 1, 1, 0, 0);
 
-            return tableView;
+            CenteredButtonView resultsButton = new CenteredButtonView();
+            resultsButton.setText("View Results");
+            resultsButton.setAction(this::openResults);
+            configure(resultsButton);
+            grid.addItem(resultsButton, 1, 0, 1, 1, 0, 0);
+
+            return grid;
 
         } catch (WebClientRequestException e) {
             return new SimpleMessageView("Connection Error", "Service unavailable. Could not connect to the server.");
@@ -78,6 +92,13 @@ public class GetExperimentPartScenario extends Scenario {
         } catch (Exception e) {
             return new SimpleMessageView("Unexpected Error", e.getMessage() == null ? e.toString() : e.getMessage());
         }
+    }
+
+    private void openResults() {
+        GetExperimentPartResultScenario partResultScenario = new GetExperimentPartResultScenario(client,
+                experimentId, runId, partId);
+        wireChild(partResultScenario);
+        navigate(partResultScenario.buildContext());
     }
 
 }

@@ -21,6 +21,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.FixedGridView;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOpenSelectedItemEvent;
 import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
@@ -35,7 +36,7 @@ public class MainMenu {
     private boolean isMainMenu;
     private ResizingListView<ScenarioData> scenariosView;
     private StatusBarView statusBar;
-    private GridView mainGrid;
+    private FixedGridView mainGrid;
 
     private EventLoop eventLoop;
 
@@ -116,7 +117,7 @@ public class MainMenu {
 
         statusBar = buildStatusBar();
 
-        mainGrid = new GridView();
+        mainGrid = new FixedGridView();
         ui.configure(mainGrid);
 
         mainGrid.setRowSize(0, 1);

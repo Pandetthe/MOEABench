@@ -10,7 +10,7 @@ public class InputForm extends FixedGridView {
 
     private final TerminalUI ui;
     private final Map<String, InputView> inputs = new LinkedHashMap<>();
-    private final List<Integer> rowSizes = new ArrayList<>(Arrays.asList(0, 0)); // Top and Bottom padding
+    private final List<Integer> rowSizes = new ArrayList<>(Arrays.asList(0, 0));
 
     public InputForm(TerminalUI ui, String title) {
         this.ui = ui;
@@ -18,7 +18,7 @@ public class InputForm extends FixedGridView {
         setTitle(title);
         setShowBorder(true);
 
-        setColumnSize(0, 50, 0); // Left padding, Content area, Right padding
+        setColumnSize(0, 50, 0);
         updateRowSizes();
     }
 
@@ -37,7 +37,7 @@ public class InputForm extends FixedGridView {
         input.setShowBorder(true);
 
         int rowIndex = rowSizes.size() - 1;
-        rowSizes.add(rowIndex, 4); // Add row for input before bottom padding
+        rowSizes.add(rowIndex, 4);
         updateRowSizes();
 
         addItem(input, rowIndex, 1, 1, 1, 0, 0);
@@ -59,7 +59,7 @@ public class InputForm extends FixedGridView {
         });
 
         int rowIndex = rowSizes.size() - 1;
-        rowSizes.add(rowIndex, 3); // Add row for button before bottom padding
+        rowSizes.add(rowIndex, 3);
         updateRowSizes();
 
         addItem(submitBtn, rowIndex, 1, 1, 1, 0, 0);

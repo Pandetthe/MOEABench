@@ -202,7 +202,8 @@ public class GetExperimentRunScenario extends Scenario {
 
     private void openDetailsScenario(long experimentId, long runId, long partId) {
         GetExperimentPartResultScenario experimentPartScenario = new GetExperimentPartResultScenario(client,
-                experimentId, runId, partId);
+                experimentId, runId,
+                partId);
         wireChild(experimentPartScenario);
         navigate(experimentPartScenario.buildContext());
     }

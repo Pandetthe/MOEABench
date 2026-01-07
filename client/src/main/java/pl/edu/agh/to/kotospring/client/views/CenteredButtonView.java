@@ -1,6 +1,7 @@
 package pl.edu.agh.to.kotospring.client.views;
 
 import org.springframework.shell.component.view.control.BoxView;
+import org.springframework.shell.component.view.event.KeyEvent;
 import org.springframework.shell.component.view.event.MouseEvent;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
@@ -26,10 +27,8 @@ public class CenteredButtonView extends BoxView {
     @Override
     protected void initInternal() {
         super.initInternal();
-        // 1048580 is Enter, 32 is Space (values from ResizingListView)
-        this.registerKeyBinding(1048580, this::handleAction);
-        this.registerKeyBinding(32, this::handleAction);
-        // 65 is Mouse Click (value from ResizingListView)
+        this.registerKeyBinding(KeyEvent.Key.Enter, this::handleAction);
+        this.registerKeyBinding(KeyEvent.Key.Space, this::handleAction);
         this.registerMouseBinding(65, this::handleMouseClick);
     }
 
