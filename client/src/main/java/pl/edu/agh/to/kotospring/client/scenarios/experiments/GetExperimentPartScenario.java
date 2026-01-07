@@ -1,5 +1,7 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Scope;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -20,20 +22,31 @@ import java.util.List;
 import java.util.Set;
 
 @ScenarioComponent(name = "Get experiment part", type = ScenarioType.OTHER)
+@Scope("prototype")
 public class GetExperimentPartScenario extends Scenario {
 
-    private ExperimentClient client;
+    private final ExperimentClient client;
     private long experimentId;
     private long runId;
     private long partId;
 
-    protected GetExperimentPartScenario() {
+    private final ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider;
+
+    public GetExperimentPartScenario(ExperimentClient client,
+            ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider) {
+        this.client = client;
+        this.getExperimentPartResultScenarioProvider = getExperimentPartResultScenarioProvider;
     }
 
-    public GetExperimentPartScenario(ExperimentClient client, long experimentId, long runId, long partId) {
-        this.client = client;
+    public void setExperimentId(long experimentId) {
         this.experimentId = experimentId;
+    }
+
+    public void setRunId(long runId) {
         this.runId = runId;
+    }
+
+    public void setPartId(long partId) {
         this.partId = partId;
     }
 
@@ -95,8 +108,10 @@ public class GetExperimentPartScenario extends Scenario {
     }
 
     private void openResults() {
-        GetExperimentPartResultScenario partResultScenario = new GetExperimentPartResultScenario(client,
-                experimentId, runId, partId);
+        GetExperimentPartResultScenario partResultScenario = getExperimentPartResultScenarioProvider.getObject();
+        partResultScenario.setExperimentId(experimentId);
+        partResultScenario.setRunNo(runId);
+        partResultScenario.setPartId(partId);
         wireChild(partResultScenario);
         navigate(partResultScenario.buildContext());
     }

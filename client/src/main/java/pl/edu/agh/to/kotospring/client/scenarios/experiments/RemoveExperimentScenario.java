@@ -9,6 +9,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
+import pl.edu.agh.to.kotospring.client.services.ExperimentErrorHandler;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -60,13 +61,13 @@ public class RemoveExperimentScenario extends Scenario {
 
         } catch (RestClientResponseException e) {
             resultView = errorHandler.httpErrorView(
-                    e.getRawStatusCode(),
+                    e.getStatusCode().value(),
                     e.getStatusText(),
                     e.getResponseBodyAsString());
             showResult(resultView, false);
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            resultView = errorHandler.httpErrorView(e.getRawStatusCode(),
+            resultView = errorHandler.httpErrorView(e.getStatusCode().value(),
                     e.getStatusText(),
                     body);
             showResult(resultView, false);
@@ -86,10 +87,7 @@ public class RemoveExperimentScenario extends Scenario {
 
     private void showResult(View resultView, boolean replace) {
         configure(resultView);
-        View finalResultView = resultView;
-        Runnable onStart = () -> {
-            getTerminalUI().setFocus(finalResultView);
-        };
+        Runnable onStart = () -> getTerminalUI().setFocus(resultView);
 
         if (replace) {
             replace(resultView, onStart);

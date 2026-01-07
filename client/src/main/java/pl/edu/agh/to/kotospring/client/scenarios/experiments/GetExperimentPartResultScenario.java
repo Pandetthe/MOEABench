@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import org.springframework.context.annotation.Scope;
 import org.springframework.shell.component.view.control.View;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
@@ -14,20 +15,27 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartRe
 import java.util.*;
 
 @ScenarioComponent(name = "Get experiment part result", type = ScenarioType.OTHER)
+@Scope("prototype")
 public class GetExperimentPartResultScenario extends Scenario {
 
-    private ExperimentClient client;
+    private final ExperimentClient client;
     private long experimentId;
     private long runNo;
     private long partId;
 
-    public GetExperimentPartResultScenario() {
+    public GetExperimentPartResultScenario(ExperimentClient client) {
+        this.client = client;
     }
 
-    public GetExperimentPartResultScenario(ExperimentClient client, long experimentId, long runNo, long partId) {
-        this.client = client;
+    public void setExperimentId(long experimentId) {
         this.experimentId = experimentId;
+    }
+
+    public void setRunNo(long runNo) {
         this.runNo = runNo;
+    }
+
+    public void setPartId(long partId) {
         this.partId = partId;
     }
 

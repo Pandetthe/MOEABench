@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.client.scenarios;
+package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.shell.component.view.control.View;

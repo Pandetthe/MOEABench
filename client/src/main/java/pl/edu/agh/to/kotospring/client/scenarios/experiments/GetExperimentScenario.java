@@ -1,5 +1,7 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Scope;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -24,19 +26,23 @@ import java.util.List;
 import java.util.Map;
 
 @ScenarioComponent(name = "Get experiment", type = ScenarioType.OTHER)
+@Scope("prototype")
 public class GetExperimentScenario extends Scenario {
 
-    private ExperimentClient client;
+    private final ExperimentClient client;
+    private final ObjectProvider<GetExperimentRunScenario> getExperimentRunScenarioProvider;
     private long experimentId;
 
     private ExperimentRunStatus runStatus = null;
 
-    public GetExperimentScenario(ExperimentClient client, long experimentId) {
+    public GetExperimentScenario(ExperimentClient client,
+            ObjectProvider<GetExperimentRunScenario> getExperimentRunScenarioProvider) {
         this.client = client;
-        this.experimentId = experimentId;
+        this.getExperimentRunScenarioProvider = getExperimentRunScenarioProvider;
     }
 
-    protected GetExperimentScenario() {
+    public void setExperimentId(long experimentId) {
+        this.experimentId = experimentId;
     }
 
     @Override
@@ -165,12 +171,14 @@ public class GetExperimentScenario extends Scenario {
 
                 openDetailsScenario(experimentId, runId);
             }
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException ignored) {
         }
     }
 
     private void openDetailsScenario(long experimentId, long runId) {
-        GetExperimentRunScenario experimentScenario = new GetExperimentRunScenario(client, experimentId, runId);
+        GetExperimentRunScenario experimentScenario = getExperimentRunScenarioProvider.getObject();
+        experimentScenario.setExperimentId(experimentId);
+        experimentScenario.setRunNo(runId);
         wireChild(experimentScenario);
         navigate(experimentScenario.buildContext());
     }

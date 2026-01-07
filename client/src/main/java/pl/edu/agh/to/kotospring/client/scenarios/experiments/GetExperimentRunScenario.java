@@ -1,5 +1,7 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.annotation.Scope;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -25,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 
 @ScenarioComponent(name = "Get experiment run", type = ScenarioType.OTHER)
+@Scope("prototype")
 public class GetExperimentRunScenario extends Scenario {
 
-    private ExperimentClient client;
+    private final ExperimentClient client;
+    private final ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider;
     private long experimentId;
     private long runNo;
 
@@ -36,14 +40,18 @@ public class GetExperimentRunScenario extends Scenario {
     private String currentIndicator = null;
     private ExperimentPartStatus currentStatus = null;
 
-    public GetExperimentRunScenario(ExperimentClient client, long experimentId, long runNo) {
+    public GetExperimentRunScenario(ExperimentClient client,
+            ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider) {
         this.client = client;
-        this.experimentId = experimentId;
-        this.runNo = runNo;
+        this.getExperimentPartResultScenarioProvider = getExperimentPartResultScenarioProvider;
     }
 
-    public GetExperimentRunScenario() {
+    public void setExperimentId(long experimentId) {
+        this.experimentId = experimentId;
+    }
 
+    public void setRunNo(long runNo) {
+        this.runNo = runNo;
     }
 
     @Override
@@ -196,14 +204,15 @@ public class GetExperimentRunScenario extends Scenario {
 
                 openDetailsScenario(experimentId, runNo, partId);
             }
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException ignored) {
         }
     }
 
     private void openDetailsScenario(long experimentId, long runId, long partId) {
-        GetExperimentPartResultScenario experimentPartScenario = new GetExperimentPartResultScenario(client,
-                experimentId, runId,
-                partId);
+        GetExperimentPartResultScenario experimentPartScenario = getExperimentPartResultScenarioProvider.getObject();
+        experimentPartScenario.setExperimentId(experimentId);
+        experimentPartScenario.setRunNo(runId);
+        experimentPartScenario.setPartId(partId);
         wireChild(experimentPartScenario);
         navigate(experimentPartScenario.buildContext());
     }

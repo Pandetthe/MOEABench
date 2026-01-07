@@ -9,6 +9,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
+import pl.edu.agh.to.kotospring.client.services.ExperimentErrorHandler;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.nio.charset.StandardCharsets;
@@ -85,13 +86,13 @@ public class CreateExperimentScenario extends Scenario {
 
         } catch (RestClientResponseException e) {
             resultView = errorHandler.httpErrorView(
-                    e.getRawStatusCode(),
+                    e.getStatusCode().value(),
                     e.getStatusText(),
                     e.getResponseBodyAsString());
             showResult(resultView, false);
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            resultView = errorHandler.httpErrorView(e.getRawStatusCode(),
+            resultView = errorHandler.httpErrorView(e.getStatusCode().value(),
                     e.getStatusText(),
                     body);
             showResult(resultView, false);
@@ -111,9 +112,7 @@ public class CreateExperimentScenario extends Scenario {
 
     private void showResult(View resultView, boolean replace) {
         configure(resultView);
-        Runnable onStart = () -> {
-            getTerminalUI().setFocus(resultView);
-        };
+        Runnable onStart = () -> getTerminalUI().setFocus(resultView);
 
         if (replace) {
             replace(resultView, onStart);

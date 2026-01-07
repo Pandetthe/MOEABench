@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -36,8 +37,12 @@ public class GetExperimentsScenario extends Scenario {
     private OffsetDateTime currentStartTime = null;
     private OffsetDateTime currentEndTime = null;
 
-    public GetExperimentsScenario(ExperimentClient experimentClient) {
+    private final ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider;
+
+    public GetExperimentsScenario(ExperimentClient experimentClient,
+            ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider) {
         this.experimentClient = experimentClient;
+        this.getExperimentScenarioProvider = getExperimentScenarioProvider;
     }
 
     @Override
@@ -200,12 +205,13 @@ public class GetExperimentsScenario extends Scenario {
 
                 openDetailsScenario(experimentId);
             }
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException ignored) {
         }
     }
 
     private void openDetailsScenario(long experimentId) {
-        GetExperimentScenario experimentScenario = new GetExperimentScenario(experimentClient, experimentId);
+        GetExperimentScenario experimentScenario = getExperimentScenarioProvider.getObject();
+        experimentScenario.setExperimentId(experimentId);
         wireChild(experimentScenario);
         navigate(experimentScenario.buildContext());
     }
