@@ -14,7 +14,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartRe
 import java.util.*;
 import java.util.stream.Collectors;
 
-@ScenarioComponent(name = "Check part result", type = ScenarioType.OTHER, skipOnReturn = false)
+@ScenarioComponent(name = "Get experiment part result", type = ScenarioType.OTHER)
 public class GetExperimentPartResultScenario extends Scenario {
 
     private ExperimentClient client;
@@ -40,7 +40,8 @@ public class GetExperimentPartResultScenario extends Scenario {
             return partResultAsOneTableIndicatorsLast(partId, resp);
 
         } catch (Exception e) {
-            return new SimpleMessageView("Error", "Could not fetch result: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+            return new SimpleMessageView("Error", "Could not fetch result: "
+                    + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
         }
     }
 
@@ -72,7 +73,8 @@ public class GetExperimentPartResultScenario extends Scenario {
             row.add(String.valueOf(partId));
             row.add("No solutions");
             int numericCols = varKeys.size() + objKeys.size() + conKeys.size();
-            for (int i = 1; i < numericCols; i++) row.add("-");
+            for (int i = 1; i < numericCols; i++)
+                row.add("-");
             row.add(indicatorsCompact);
             rows.add(row);
         } else {
@@ -84,11 +86,15 @@ public class GetExperimentPartResultScenario extends Scenario {
                 if (fallbackToString) {
                     row.add(String.valueOf(r));
                     int numericCols = varKeys.size() + objKeys.size() + conKeys.size();
-                    for (int i = 1; i < numericCols; i++) row.add("-");
+                    for (int i = 1; i < numericCols; i++)
+                        row.add("-");
                 } else {
-                    for (String k : varKeys) row.add(formatAny(r.variables() == null ? null : r.variables().get(k)));
-                    for (String k : objKeys) row.add(formatDouble(r.objectives() == null ? null : r.objectives().get(k)));
-                    for (String k : conKeys) row.add(formatDouble(r.constraints() == null ? null : r.constraints().get(k)));
+                    for (String k : varKeys)
+                        row.add(formatAny(r.variables() == null ? null : r.variables().get(k)));
+                    for (String k : objKeys)
+                        row.add(formatDouble(r.objectives() == null ? null : r.objectives().get(k)));
+                    for (String k : conKeys)
+                        row.add(formatDouble(r.constraints() == null ? null : r.constraints().get(k)));
                 }
 
                 row.add(indicatorsCompact);
@@ -112,20 +118,26 @@ public class GetExperimentPartResultScenario extends Scenario {
     }
 
     private static String formatAny(Object v) {
-        if (v == null) return "-";
-        if (v instanceof Double d) return formatDoubleShort(d);
-        if (v instanceof Float f) return formatDoubleShort(f.doubleValue());
-        if (v instanceof Number n) return formatDoubleShort(n.doubleValue());
+        if (v == null)
+            return "-";
+        if (v instanceof Double d)
+            return formatDoubleShort(d);
+        if (v instanceof Float f)
+            return formatDoubleShort(f.doubleValue());
+        if (v instanceof Number n)
+            return formatDoubleShort(n.doubleValue());
         return String.valueOf(v);
     }
 
     private static String formatDouble(Double v) {
-        if (v == null) return "-";
+        if (v == null)
+            return "-";
         return formatDoubleShort(v);
     }
 
     private static String formatDoubleShort(Double v) {
-        if (v == null) return "-";
+        if (v == null)
+            return "-";
         double x = v;
         double ax = Math.abs(x);
 
@@ -141,7 +153,8 @@ public class GetExperimentPartResultScenario extends Scenario {
     }
 
     private static String compactIndicators(Map<String, Double> indicators) {
-        if (indicators == null || indicators.isEmpty()) return "-";
+        if (indicators == null || indicators.isEmpty())
+            return "-";
         return indicators.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(e -> e.getKey() + "=" + formatDoubleShort(e.getValue()))
@@ -152,7 +165,8 @@ public class GetExperimentPartResultScenario extends Scenario {
         int cols = headers.size();
         int[] w = new int[cols];
 
-        for (int i = 0; i < cols; i++) w[i] = headers.get(i) == null ? 0 : headers.get(i).length();
+        for (int i = 0; i < cols; i++)
+            w[i] = headers.get(i) == null ? 0 : headers.get(i).length();
         for (List<String> r : rows) {
             for (int i = 0; i < cols; i++) {
                 String cell = (r != null && i < r.size() && r.get(i) != null) ? r.get(i) : "";
@@ -167,10 +181,14 @@ public class GetExperimentPartResultScenario extends Scenario {
             int minW = Math.max(5, h == null ? 5 : h.length());
             int maxW;
 
-            if ("Part ID".equals(h)) maxW = 6;
-            else if ("Indicators".equals(h)) maxW = 18;
-            else if ("Solutions".equals(h)) maxW = 30;
-            else maxW = 12;
+            if ("Part ID".equals(h))
+                maxW = 6;
+            else if ("Indicators".equals(h))
+                maxW = 18;
+            else if ("Solutions".equals(h))
+                maxW = 30;
+            else
+                maxW = 12;
 
             out.add(Math.min(maxW, Math.max(minW, w[i])));
         }

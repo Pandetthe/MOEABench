@@ -13,6 +13,7 @@ public abstract class Scenario {
     private ViewService viewService;
     private EventLoop eventloop;
     private Consumer<ScenarioContext> navigationConsumer;
+    private Consumer<ScenarioContext> replacementConsumer;
     private Consumer<List<String>> statusBarConsumer;
 
     protected ViewService getViewService() {
@@ -31,6 +32,10 @@ public abstract class Scenario {
         this.navigationConsumer = navigationConsumer;
     }
 
+    public void setReplacementConsumer(Consumer<ScenarioContext> replacementConsumer) {
+        this.replacementConsumer = replacementConsumer;
+    }
+
     public void setStatusBarConsumer(Consumer<List<String>> statusBarConsumer) {
         this.statusBarConsumer = statusBarConsumer;
     }
@@ -45,6 +50,41 @@ public abstract class Scenario {
         if (navigationConsumer != null) {
             navigationConsumer.accept(context);
         }
+    }
+
+    protected void navigate(View view) {
+        navigate(createContext(view));
+    }
+
+    protected void replace(ScenarioContext context) {
+        if (replacementConsumer != null) {
+            replacementConsumer.accept(context);
+        } else {
+            navigate(context);
+        }
+    }
+
+    protected void replace(View view) {
+        replace(createContext(view));
+    }
+
+    protected void replace(View view, Runnable onStart) {
+        replace(createContext(view, onStart));
+    }
+
+    protected ScenarioContext createContext(View view) {
+        return ScenarioContext.of(view, this);
+    }
+
+    protected ScenarioContext createContext(View view, Runnable onStart) {
+        return ScenarioContext.of(view, this, onStart, null);
+    }
+
+    protected void wireChild(Scenario child) {
+        child.configure(getTerminalUI());
+        child.setNavigationConsumer(this::navigate);
+        child.setReplacementConsumer(this::replace);
+        child.setStatusBarConsumer(this::setStatusBar);
     }
 
     public abstract View build();

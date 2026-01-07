@@ -14,10 +14,8 @@ import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentResponse;
 
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -25,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@ScenarioComponent(name = "", type = ScenarioType.OTHER, skipOnReturn = false)
+@ScenarioComponent(name = "Get experiment", type = ScenarioType.OTHER)
 public class GetExperimentScenario extends Scenario {
 
     private ExperimentClient client;
@@ -77,8 +75,7 @@ public class GetExperimentScenario extends Scenario {
                                 if (tableView.hasFocus() && event.getPlainKey() == 'f' && event.hasCtrl()) {
                                     openFilterForm();
                                 }
-                            })
-            );
+                            }));
 
             getEventloop().onDestroy(
                     getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, tableView)
@@ -87,8 +84,7 @@ public class GetExperimentScenario extends Scenario {
                                 if (item instanceof ExperimentOption option) {
                                     handleRowSelection(option);
                                 }
-                            })
-            );
+                            }));
 
             return tableView;
 
@@ -130,9 +126,11 @@ public class GetExperimentScenario extends Scenario {
             }, null));
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            SimpleMessageView errorView = new SimpleMessageView("Filter Error", "Invalid input format: " + e.getMessage());
+            SimpleMessageView errorView = new SimpleMessageView("Filter Error",
+                    "Invalid input format: " + e.getMessage());
             configure(errorView);
-            navigate(ScenarioContext.of(errorView, this, () -> getTerminalUI().setFocus(errorView.getContentList()), null));
+            navigate(ScenarioContext.of(errorView, this, () -> getTerminalUI().setFocus(errorView),
+                    null));
         }
     }
 
@@ -147,9 +145,12 @@ public class GetExperimentScenario extends Scenario {
 
     private void handleRowSelection(ExperimentOption option) {
         String rowText = option.name();
-        if (rowText.contains("ID") && rowText.contains("Status")) return;
-        if (rowText.startsWith("--")) return;
-        if (rowText.contains("<<") || rowText.contains(">>")) return;
+        if (rowText.contains("ID") && rowText.contains("Status"))
+            return;
+        if (rowText.startsWith("--"))
+            return;
+        if (rowText.contains("<<") || rowText.contains(">>"))
+            return;
 
         try {
 

@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@ScenarioComponent(name = "", type = ScenarioType.OTHER, skipOnReturn = false)
+@ScenarioComponent(name = "Get experiment part", type = ScenarioType.OTHER)
 public class GetExperimentPartScenario extends Scenario {
 
     private ExperimentClient client;
@@ -61,7 +61,8 @@ public class GetExperimentPartScenario extends Scenario {
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
-            tableView.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runId + ", Part ID: " + partId);
+            tableView.setTitle(
+                    "Details for Experiment ID: " + experimentId + ", Run No: " + runId + ", Part ID: " + partId);
             tableView.setAutoRunOnOpen(false);
             configure(tableView);
 

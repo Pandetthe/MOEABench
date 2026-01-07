@@ -1,25 +1,16 @@
 package pl.edu.agh.to.kotospring.client.views;
 
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.shell.component.view.TerminalUI;
-import org.springframework.shell.component.view.control.ButtonView;
 import org.springframework.shell.component.view.control.InputView;
-import org.springframework.shell.component.view.event.EventLoop;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class InputForm extends FixedGridView {
 
-    private final static ParameterizedTypeReference<ResizingListView.ResizingListViewOpenSelectedItemEvent<ExperimentOption>> BUTTON_EVENT_TYPE
-            = new ParameterizedTypeReference<>() {};
     private final TerminalUI ui;
     private final Map<String, InputView> inputs = new LinkedHashMap<>();
-    private int currentRow = 1;
+    private final List<Integer> rowSizes = new ArrayList<>(Arrays.asList(0, 0)); // Top and Bottom padding
 
     public InputForm(TerminalUI ui, String title) {
         this.ui = ui;
@@ -27,9 +18,16 @@ public class InputForm extends FixedGridView {
         setTitle(title);
         setShowBorder(true);
 
-        setColumnSize(0, 2);
-        setColumnSize(1, 40);
-        setRowSize(0, 1);
+        setColumnSize(0, 50, 0); // Left padding, Content area, Right padding
+        updateRowSizes();
+    }
+
+    private void updateRowSizes() {
+        int[] rows = new int[rowSizes.size()];
+        for (int i = 0; i < rowSizes.size(); i++) {
+            rows[i] = rowSizes.get(i);
+        }
+        setRowSize(rows);
     }
 
     public void addInput(String key, String label) {
@@ -38,40 +36,33 @@ public class InputForm extends FixedGridView {
         input.setTitle(label);
         input.setShowBorder(true);
 
-        setRowSize(currentRow, 4);
-        addItem(input, currentRow, 1, 1, 1, 0, 0);
+        int rowIndex = rowSizes.size() - 1;
+        rowSizes.add(rowIndex, 4); // Add row for input before bottom padding
+        updateRowSizes();
+
+        addItem(input, rowIndex, 1, 1, 1, 0, 0);
 
         inputs.put(key, input);
-        currentRow++;
     }
 
     public void setSubmitAction(String buttonLabel, Consumer<Map<String, String>> onSubmit) {
-        ButtonView submitBtn = new ButtonView();
+        CenteredButtonView submitBtn = new CenteredButtonView();
         ui.configure(submitBtn);
-        submitBtn.setShowBorder(false);
         submitBtn.setText(buttonLabel);
-//        submitBtn.setRowHeight(3);
-//        submitBtn.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ExperimentOption::name));
 
-        ExperimentOption option = new ExperimentOption(buttonLabel, () -> {
+        submitBtn.setAction(() -> {
             Map<String, String> results = inputs.entrySet().stream()
                     .collect(Collectors.toMap(
                             Map.Entry::getKey,
-                            entry -> entry.getValue().getInputText()
-                    ));
+                            entry -> entry.getValue().getInputText()));
             onSubmit.accept(results);
         });
 
-        submitBtn.setAction(option.action());
+        int rowIndex = rowSizes.size() - 1;
+        rowSizes.add(rowIndex, 3); // Add row for button before bottom padding
+        updateRowSizes();
 
-        EventLoop loop = ui.getEventLoop();
-        loop.onDestroy(loop.viewEvents(BUTTON_EVENT_TYPE, submitBtn)
-                .subscribe(event -> event.args().item().action().run()));
-        setRowSize(currentRow, 3);
-
-        addItem(submitBtn, currentRow, 1, 1, 1, 0, 0);
-
-//        setRowSize(currentRow + 1, 0);
+        addItem(submitBtn, rowIndex, 1, 1, 1, 0, 0);
     }
 
     public void focusFirstInput() {

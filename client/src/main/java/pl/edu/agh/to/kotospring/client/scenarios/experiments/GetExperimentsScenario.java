@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@ScenarioComponent(name = "Get list of experiments", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = false)
+@ScenarioComponent(name = "Get all experiments", type = ScenarioType.EXPERIMENT_MENU)
 public class GetExperimentsScenario extends Scenario {
     private final ExperimentClient experimentClient;
 
@@ -49,8 +49,7 @@ public class GetExperimentsScenario extends Scenario {
                     currentIndicator,
                     currentStatus,
                     currentStartTime,
-                    currentEndTime
-            );
+                    currentEndTime);
             List<String> headers = List.of("ID", "Status", "Queued", "Started", "Finished");
             List<Integer> widths = List.of(5, 16, 27, 27, 27);
 
@@ -80,8 +79,7 @@ public class GetExperimentsScenario extends Scenario {
                                 if (tableView.hasFocus() && event.getPlainKey() == 'f' && event.hasCtrl()) {
                                     openFilterForm();
                                 }
-                            })
-            );
+                            }));
 
             getEventloop().onDestroy(
                     getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, tableView)
@@ -90,8 +88,7 @@ public class GetExperimentsScenario extends Scenario {
                                 if (item instanceof ExperimentOption option) {
                                     handleRowSelection(option);
                                 }
-                            })
-            );
+                            }));
 
             return tableView;
 
@@ -159,9 +156,11 @@ public class GetExperimentsScenario extends Scenario {
             }, null));
 
         } catch (IllegalArgumentException | DateTimeParseException e) {
-            SimpleMessageView errorView = new SimpleMessageView("Filter Error", "Invalid input format: " + e.getMessage());
+            SimpleMessageView errorView = new SimpleMessageView("Filter Error",
+                    "Invalid input format: " + e.getMessage());
             configure(errorView);
-            navigate(ScenarioContext.of(errorView, this, () -> getTerminalUI().setFocus(errorView.getContentList()), null));
+            navigate(ScenarioContext.of(errorView, this, () -> getTerminalUI().setFocus(errorView),
+                    null));
         }
     }
 
@@ -182,9 +181,12 @@ public class GetExperimentsScenario extends Scenario {
     private void handleRowSelection(ExperimentOption option) {
         String rowText = option.name();
 
-        if (rowText.contains("ID") && rowText.contains("Status")) return;
-        if (rowText.startsWith("--")) return;
-        if (rowText.contains("<<") || rowText.contains(">>")) return;
+        if (rowText.contains("ID") && rowText.contains("Status"))
+            return;
+        if (rowText.startsWith("--"))
+            return;
+        if (rowText.contains("<<") || rowText.contains(">>"))
+            return;
 
         try {
             String[] columns = rowText.split("\\|");

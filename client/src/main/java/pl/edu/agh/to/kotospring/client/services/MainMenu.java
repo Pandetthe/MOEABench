@@ -73,9 +73,6 @@ public class MainMenu {
                 ui.setFocus(scenariosView);
             } else {
                 ScenarioContext previous = contextStack.peek();
-                ScenarioComponent ann = AnnotationUtils.findAnnotation(previous.scenario().getClass(), ScenarioComponent.class);
-                if (ann != null && ann.skipOnReturn())
-                    continue;
                 updateGridContent(previous.view());
                 isMainMenu = false;
                 statusBarData.clear();
@@ -148,6 +145,7 @@ public class MainMenu {
         scenario.configure(ui);
         isMainMenu = false;
         scenario.setNavigationConsumer(this::navigateTo);
+        scenario.setReplacementConsumer(this::replaceTo);
         scenario.setStatusBarConsumer(this::setStatusBar);
         ScenarioContext context = scenario.buildContext();
         navigateTo(context);
@@ -160,6 +158,14 @@ public class MainMenu {
         updateStatusBar();
         ui.setFocus(context.view());
         context.start();
+    }
+
+    private void replaceTo(ScenarioContext context) {
+        if (!contextStack.isEmpty()) {
+            ScenarioContext old = contextStack.pop();
+            old.stop();
+        }
+        navigateTo(context);
     }
 
     private void setStatusBar(List<String> statusBar) {
@@ -175,7 +181,8 @@ public class MainMenu {
 
     private void updateStatusBar() {
         List<StatusItem> statusBarItems = new ArrayList<>();
-        statusBarItems.add(isMainMenu ? StatusItem.of("CTRL-Q Exit", this::requestQuit) : StatusItem.of("CTRL-Q Return", this::returnToMenu));
+        statusBarItems.add(isMainMenu ? StatusItem.of("CTRL-Q Exit", this::requestQuit)
+                : StatusItem.of("CTRL-Q Return", this::returnToMenu));
         statusBarData.forEach(s -> statusBarItems.add(StatusItem.of(s)));
         statusBar.setItems(statusBarItems);
     }
