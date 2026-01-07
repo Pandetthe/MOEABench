@@ -106,7 +106,7 @@ public class Experiment {
     }
 
     public Set<ExperimentPart> getParts() {
-        return Collections.unmodifiableSet(parts);
+        return parts;
     }
 
     public void addPart(ExperimentPart part) {

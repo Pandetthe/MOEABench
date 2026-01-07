@@ -278,14 +278,20 @@ public class ExperimentServiceImpl implements ExperimentService {
     public boolean deleteExperiment(long id) {
         logger.debug("Attempting to delete experiment ID {}", id);
 
-        if (experimentRepository.existsById(id)) {
-            experimentRepository.deleteById(id);
+        return experimentRepository.findById(id).map(experiment -> {
+            experiment.getRuns().clear();
+            experimentRepository.saveAndFlush(experiment);
+
+            experiment.getParts().clear();
+            experimentRepository.saveAndFlush(experiment);
+
+            experimentRepository.delete(experiment);
             logger.info("Experiment ID {} deleted successfully", id);
             return true;
-        }
-
-        logger.info("Failed to delete experiment ID {}: Not found", id);
-        return false;
+        }).orElseGet(() -> {
+            logger.info("Failed to delete experiment ID {}: Not found", id);
+            return false;
+        });
     }
 
     @Override
@@ -301,9 +307,15 @@ public class ExperimentServiceImpl implements ExperimentService {
                 experiment.removeRun(runToDelete.get());
                 if (experiment.getRuns().isEmpty()) {
                     logger.info("Deleting experiment ID {} because last run was removed", id);
+                    experiment.getRuns().clear();
+                    experimentRepository.saveAndFlush(experiment);
+
+                    experiment.getParts().clear();
+                    experimentRepository.saveAndFlush(experiment);
+
                     experimentRepository.delete(experiment);
                 } else {
-                    experimentRepository.save(experiment);
+                    experimentRepository.saveAndFlush(experiment);
                     logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
                 }
                 return true;
