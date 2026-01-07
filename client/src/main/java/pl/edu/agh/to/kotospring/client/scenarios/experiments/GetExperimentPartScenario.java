@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-@ScenarioComponent(name = "", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
+@ScenarioComponent(name = "", type = ScenarioType.OTHER, skipOnReturn = false)
 public class GetExperimentPartScenario extends Scenario {
 
     private ExperimentClient client;

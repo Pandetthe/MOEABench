@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@ScenarioComponent(name = "Get list of experiments", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
+@ScenarioComponent(name = "Get list of experiments", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = false)
 public class GetExperimentsScenario extends Scenario {
     private final ExperimentClient experimentClient;
 

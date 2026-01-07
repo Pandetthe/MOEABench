@@ -49,21 +49,32 @@ public interface ExperimentClient {
     @GetExchange("/experiments/{id}/status/")
     GetExperimentStatusResponse getExperimentStatus(@PathVariable("id") long id);
 
-    @GetExchange("/experiments/{id}/status/{partId}")
-    GetExperimentPartStatusResponse getExperimentPartStatus(
+    @GetExchange("/experiments/{id}/{runNo}/status")
+    GetExperimentRunStatusResponse getExperimentRunStatus(
             @PathVariable("id") long id,
-            @PathVariable("partId") long partId
+            @PathVariable("runNo") long runNo
     );
 
-    @GetExchange("/experiments/{id}")
-    GetExperimentResponse getExperiment(@PathVariable("id") long id);
+    @GetExchange("/experiments/{id}/{runNo}/{partId}/status")
+    GetExperimentPartStatusResponse getExperimentPartStatus(
+            @PathVariable("id") long id,
+            @PathVariable("runNo") long runNo,
+            @PathVariable("partId") long partId
+    );
 
     @GetExchange("/experiments/{id}/result")
     GetExperimentResultResponse getExperimentResult(@PathVariable("id") long id);
 
-    @GetExchange("/experiments/{id}/result/{partId}")
+    @GetExchange("/experiments/{id}/{runNo}/result")
+    GetExperimentRunResultResponse getExperimentRunResult(
+            @PathVariable("id") long id,
+            @PathVariable("runNo") long runNo
+    );
+
+    @GetExchange("/experiments/{id}/{runNo}/{partId}/result")
     GetExperimentPartResultResponse getExperimentPartResult(
             @PathVariable("id") long id,
+            @PathVariable("runNo") long runNo,
             @PathVariable("partId") long partId
     );
 

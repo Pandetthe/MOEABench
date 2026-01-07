@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
+@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = false)
 public class CreateExperimentScenario extends Scenario {
 
     private final ExperimentClient client;

@@ -24,22 +24,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@ScenarioComponent(name = "", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
+@ScenarioComponent(name = "", type = ScenarioType.OTHER, skipOnReturn = false)
 public class GetExperimentRunScenario extends Scenario {
 
     private ExperimentClient client;
     private long experimentId;
-    private long runId;
+    private long runNo;
 
     private String currentAlgorithm = null;
     private String currentProblem = null;
     private String currentIndicator = null;
     private ExperimentPartStatus currentStatus = null;
 
-    public GetExperimentRunScenario(ExperimentClient client, long experimentId, long runId) {
+    public GetExperimentRunScenario(ExperimentClient client, long experimentId, long runNo) {
         this.client = client;
         this.experimentId = experimentId;
-        this.runId = runId;
+        this.runNo = runNo;
     }
 
     public GetExperimentRunScenario() {
@@ -51,7 +51,7 @@ public class GetExperimentRunScenario extends Scenario {
         try {
             GetExperimentRunResponse response = client.getExperimentRun(
                     experimentId,
-                    runId,
+                    runNo,
                     currentAlgorithm,
                     currentProblem,
                     currentIndicator,
@@ -81,7 +81,7 @@ public class GetExperimentRunScenario extends Scenario {
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
-            tableView.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runId);
+            tableView.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runNo);
             tableView.setAutoRunOnOpen(false);
             configure(tableView);
 
@@ -187,14 +187,14 @@ public class GetExperimentRunScenario extends Scenario {
                 String idStr = columns[0].trim();
                 long partId = Long.parseLong(idStr);
 
-                openDetailsScenario(experimentId, runId, partId);
+                openDetailsScenario(experimentId, runNo, partId);
             }
         } catch (NumberFormatException e) {
         }
     }
 
     private void openDetailsScenario(long experimentId, long runId, long partId) {
-        GetExperimentPartScenario experimentPartScenario = new GetExperimentPartScenario(client, experimentId, runId, partId);
+        GetExperimentPartResultScenario experimentPartScenario = new GetExperimentPartResultScenario(client, experimentId, runId, partId);
         experimentPartScenario.configure(getTerminalUI());
         ScenarioContext context = experimentPartScenario.buildContext();
         experimentPartScenario.setNavigationConsumer(this::navigate);

@@ -243,8 +243,8 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public Optional<ExperimentPart> getExperimentPartResult(long id, long runNo, long partId) {
-        logger.debug("Fetching results for experiment part ID {}", id);
-        return experimentPartRepository.findWithFullSolutionById(id, partId);
+        logger.debug("Fetching results for experiment part ID {}", partId);
+        return experimentPartRepository.findWithFullSolutionById(new RunId(id, runNo), partId);
     }
 
     @Override

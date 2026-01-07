@@ -22,9 +22,9 @@ public interface ExperimentPartRepository extends JpaRepository<ExperimentPart, 
         left join fetch sol.objectives obj
         left join fetch sol.constraints con
         left join fetch sol.variables var
-        where pa.id = :id and pa.experimentRun.id = :experimentId
+        where pa.id = :id and pa.experimentRun.id = :experimentRunId
         """)
-    Optional<ExperimentPart> findWithFullSolutionById(Long experimentId, Long id);
+    Optional<ExperimentPart> findWithFullSolutionById(RunId experimentRunId, Long id);
 
     @Query("""
         select distinct p from ExperimentPart p
