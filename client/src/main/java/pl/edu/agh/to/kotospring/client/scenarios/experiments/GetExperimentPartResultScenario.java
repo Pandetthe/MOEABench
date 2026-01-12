@@ -22,6 +22,8 @@ public class GetExperimentPartResultScenario extends Scenario {
     private long experimentId;
     private long runNo;
     private long partId;
+    private static final int FIXED_COLUMNS_NUMBER = 4;
+    private static final int MAX_COLUMNS_NUMBER = 5;
 
     public GetExperimentPartResultScenario(ExperimentClient client) {
         this.client = client;
@@ -132,8 +134,8 @@ public class GetExperimentPartResultScenario extends Scenario {
         SimpleTableView table = new SimpleTableView(headers, rows, colWidths);
         table.setTitle("Solutions (Use arrows to page columns)");
 
-        if (headers.size() > 5) {
-            table.enableColumnPaging(0, 5);
+        if (headers.size() > MAX_COLUMNS_NUMBER) {
+            table.enableColumnPaging(FIXED_COLUMNS_NUMBER, MAX_COLUMNS_NUMBER);
         }
 
         table.setShowFullNumericCells(true);

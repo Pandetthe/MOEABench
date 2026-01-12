@@ -37,6 +37,7 @@ public class MainMenu {
     private ResizingListView<ScenarioData> scenariosView;
     private StatusBarView statusBar;
     private FixedGridView mainGrid;
+    private final static int ROW_HEIGHT = 3;
 
     private EventLoop eventLoop;
 
@@ -193,7 +194,7 @@ public class MainMenu {
     private ResizingListView<ScenarioData> buildScenarioSelector() {
         ResizingListView<ScenarioData> scenarios = new ResizingListView<>();
         ui.configure(scenarios);
-        scenarios.setRowHeight(3);
+        scenarios.setRowHeight(ROW_HEIGHT);
         scenarios.setTitle("Main menu");
         scenarios.setTitleAlign(HorizontalAlign.CENTER);
         scenarios.setShowBorder(true);

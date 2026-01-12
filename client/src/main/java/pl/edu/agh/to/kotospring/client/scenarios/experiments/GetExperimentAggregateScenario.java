@@ -21,6 +21,8 @@ public class GetExperimentAggregateScenario extends Scenario {
 
     private final ExperimentClient client;
     private long experimentId;
+    private static final int FIXED_COLUMNS_NUMBER = 4;
+    private static final int MAX_COLUMNS_NUMBER = 5;
 
     public GetExperimentAggregateScenario(ExperimentClient client) {
         this.client = client;
@@ -72,8 +74,8 @@ public class GetExperimentAggregateScenario extends Scenario {
         table.setTitle("Aggregated Results for Experiment ID: " + experimentId);
         table.setShowBorder(true);
         table.setEnableWrapping(false);
-        if (headers.size() > 5) {
-            table.enableColumnPaging(4, 5);
+        if (headers.size() > MAX_COLUMNS_NUMBER) {
+            table.enableColumnPaging(FIXED_COLUMNS_NUMBER, MAX_COLUMNS_NUMBER);
         }
         configure(table);
         return table;

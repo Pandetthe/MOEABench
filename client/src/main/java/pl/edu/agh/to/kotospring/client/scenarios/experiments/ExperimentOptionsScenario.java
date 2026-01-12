@@ -20,6 +20,8 @@ public class ExperimentOptionsScenario extends Scenario {
     private final ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider;
     private final ObjectProvider<GetExperimentAggregateScenario> getExperimentAggregateScenarioProvider;
     private long experimentId;
+    private final static int ROW_HEIGHT = 3;
+
 
     public ExperimentOptionsScenario(
             ObjectProvider<GetExperimentScenario> getExperimentScenarioProvider,
@@ -36,7 +38,7 @@ public class ExperimentOptionsScenario extends Scenario {
     public View build() {
         ResizingListView<MenuOption> options = new ResizingListView<>();
         configure(options);
-        options.setRowHeight(3);
+        options.setRowHeight(ROW_HEIGHT);
         options.setTitle("Experiment ID: " + experimentId);
         options.setTitleAlign(HorizontalAlign.CENTER);
         options.setShowBorder(true);

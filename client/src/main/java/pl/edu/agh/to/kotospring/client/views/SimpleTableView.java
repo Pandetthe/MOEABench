@@ -24,6 +24,8 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
     private boolean indicatorsFullOnLastPage = false;
     private int indicatorsLastPageWidth = 80;
     private int lastWidth = -1;
+    private final static int ROW_HEIGHT = 1;
+    private final static int MIN_TABLE_WIDTH = 10;
 
     public SimpleTableView(List<String> headers, List<List<String>> data, List<Integer> colWidths) {
         super();
@@ -34,7 +36,7 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
 
         setTitle("Results");
         setShowBorder(true);
-        setRowHeight(1);
+        setRowHeight(ROW_HEIGHT);
         setCellFactory((list, item) -> new SimpleTextCell(item));
         setAutoRunOnOpen(true);
         refreshItems(buildRowsNoPaging());
@@ -74,7 +76,7 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
         if (numCols == 0)
             return;
 
-        int maxTableWidth = Math.max(10, totalWidth - 2);
+        int maxTableWidth = Math.max(MIN_TABLE_WIDTH, totalWidth - 2);
 
         int visibleCount = pagingEnabled ? (frozenColumns + pageColumns) : numCols;
         visibleCount = Math.min(visibleCount, numCols);

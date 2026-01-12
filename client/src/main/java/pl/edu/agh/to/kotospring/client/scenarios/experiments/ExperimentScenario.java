@@ -17,6 +17,7 @@ import java.util.List;
 @ScenarioComponent(name = "Experiments")
 public class ExperimentScenario extends Scenario {
     private final List<ScenarioData> scenarioList = new ArrayList<>();
+    private final static int ROW_HEIGHT = 3;
 
     public ExperimentScenario(List<Scenario> scenarios) {
         mapScenarios(scenarios);
@@ -38,7 +39,7 @@ public class ExperimentScenario extends Scenario {
     public View build() {
         ResizingListView<ScenarioData> scenarios = new ResizingListView<>();
         configure(scenarios);
-        scenarios.setRowHeight(3);
+        scenarios.setRowHeight(ROW_HEIGHT);
         scenarios.setTitle("Experiments menu");
         scenarios.setTitleAlign(HorizontalAlign.CENTER);
         scenarios.setShowBorder(true);
