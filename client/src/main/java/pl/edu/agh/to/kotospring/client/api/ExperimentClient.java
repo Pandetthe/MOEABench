@@ -29,6 +29,15 @@ public interface ExperimentClient {
                         @PathVariable long id,
                         @RequestParam(required = false) ExperimentRunStatus runStatus);
 
+        @GetExchange("/experiments/runs")
+        GetExperimentRunsResponse getExperimentRuns(
+                        @RequestParam(required = false) String algorithm,
+                        @RequestParam(required = false) String problem,
+                        @RequestParam(required = false) String indicator,
+                        @RequestParam(required = false) ExperimentRunStatus status,
+                        @RequestParam(required = false) OffsetDateTime startTime,
+                        @RequestParam(required = false) OffsetDateTime endTime);
+
         @GetExchange("/experiments/{id}/runs/{runNo}")
         GetExperimentRunResponse getExperimentRun(
                         @PathVariable long id,

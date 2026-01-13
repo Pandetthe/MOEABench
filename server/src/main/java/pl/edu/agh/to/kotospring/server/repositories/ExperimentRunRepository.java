@@ -7,6 +7,7 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentRun;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +35,28 @@ public interface ExperimentRunRepository extends JpaRepository<ExperimentRun, Ru
             where ru.id = :id
             """)
     Optional<ExperimentRun> findWithFullSolutionById(RunId id);
+
+    @Query("""
+            select distinct ru from ExperimentRun ru
+            left join fetch ru.experiment ex
+            left join fetch ru.parts pa
+            left join pa.experimentPart def
+            left join pa.indicators ind
+            where (:algorithm is null or def.algorithm = :algorithm)
+              and (:problem is null or def.problem = :problem)
+              and (:indicator is null or ind.name = :indicator)
+              and (:status is null or ru.status = :status)
+              and (cast(:start as timestamp) is null or ru.startedAt >= :start)
+              and (cast(:end as timestamp) is null or ru.finishedAt <= :end)
+            """)
+    List<ExperimentRun> findAllFiltered(
+            String algorithm,
+            String problem,
+            String indicator,
+            ExperimentRunStatus status,
+            OffsetDateTime start,
+            OffsetDateTime end
+    );
 
     Optional<ExperimentRunStatus> findStatusById(RunId id);
 

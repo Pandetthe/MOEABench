@@ -61,6 +61,19 @@ public final class ExperimentController {
         return ResponseEntity.ok(experimentService.getExperimentAggregate(id));
     }
 
+    @GetMapping("runs")
+    public ResponseEntity<?> getExperimentRuns(
+            @RequestParam(required = false) String algorithm,
+            @RequestParam(required = false) String problem,
+            @RequestParam(required = false) String indicator,
+            @RequestParam(required = false) ExperimentRunStatus status,
+            @RequestParam(required = false) OffsetDateTime startTime,
+            @RequestParam(required = false) OffsetDateTime endTime
+    ) {
+        var runs = experimentService.getExperimentRuns(algorithm, problem, indicator, status, startTime, endTime);
+        return ResponseEntity.ok(experimentMapper.mapToGetExperimentRunsResponse(runs));
+    }
+
     @GetMapping("{id}/runs/{runNo}")
     public ResponseEntity<?> getExperimentRun(
             @PathVariable long id,

@@ -55,6 +55,24 @@ public class ExperimentMapper {
                                 run.getFinishedAt());
         }
 
+    public GetExperimentRunsResponse mapToGetExperimentRunsResponse(List<ExperimentRun> runs) {
+        return runs.stream()
+                .map(this::mapToGetExperimentRunsResponseData)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        GetExperimentRunsResponse::new));
+    }
+
+    private GetExperimentRunsResponseData mapToGetExperimentRunsResponseData(ExperimentRun run) {
+        return new GetExperimentRunsResponseData(
+                run.getExperimentId(),
+                run.getRunNo(),
+                run.getStatus(),
+                run.getStartedAt(),
+                run.getFinishedAt()
+        );
+    }
+
         public GetExperimentRunResponse mapToGetExperimentRunResponse(ExperimentRun run) {
                 List<GetExperimentRunResponseData> mappedParts = run.getParts().stream()
                                 .map(this::mapToGetExperimentRunResponse)

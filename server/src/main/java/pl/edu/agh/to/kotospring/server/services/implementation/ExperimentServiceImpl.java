@@ -205,6 +205,13 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+                                                 ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end) {
+        return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<ExperimentRun> getExperimentRun(
             long id, long runNo, String algorithm, String problem,
             String indicator, ExperimentPartStatus partStatus) {

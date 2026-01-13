@@ -21,6 +21,9 @@ public interface ExperimentService {
 
         Optional<Experiment> getExperiment(long id, ExperimentRunStatus status);
 
+        List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+                                          ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end);
+
         Optional<ExperimentRun> getExperimentRun(
                         long id, long runNo, String algorithm, String problem,
                         String indicator, ExperimentPartStatus partStatus);
