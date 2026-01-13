@@ -16,12 +16,10 @@ import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.models.IndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentRunRepository;
+import pl.edu.agh.to.kotospring.server.repositories.*;
 import pl.edu.agh.to.kotospring.server.services.interfaces.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
@@ -46,6 +44,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
     private final ExperimentExecutionService executionService;
     private final ExperimentRepository experimentRepository;
+    private final ExperimentAggregateRepository experimentAggregateRepository;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
             AlgorithmRegistryService algorithmRegistry,
@@ -53,7 +52,9 @@ public class ExperimentServiceImpl implements ExperimentService {
             ExperimentRunRepository experimentRunRepository,
             ExperimentPartRepository experimentPartRepository,
             ExperimentPartExecutionRepository experimentPartExecutionRepository,
-            ExperimentExecutionService executionService, ExperimentRepository experimentRepository) {
+            ExperimentExecutionService executionService,
+            ExperimentRepository experimentRepository,
+            ExperimentAggregateRepository experimentAggregateRepository) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
@@ -62,6 +63,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         this.experimentPartExecutionRepository = experimentPartExecutionRepository;
         this.executionService = executionService;
         this.experimentRepository = experimentRepository;
+        this.experimentAggregateRepository = experimentAggregateRepository;
     }
 
     @Override
@@ -329,62 +331,49 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public GetExperimentAggregateResponse getExperimentAggregate(
-            long experimentId) {
+    public GetExperimentAggregateResponse getExperimentAggregate(long experimentId) {
         logger.debug("Calculating aggregate statistics for experiment ID {}", experimentId);
+        if (!experimentRepository.existsById(experimentId)) {
+            throw new NotFoundException("Experiment not found");
+        }
         List<ExperimentPart> definitions = experimentPartRepository.findAllByExperimentId(experimentId);
 
-        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
+        List<Object[]> rawRows = experimentAggregateRepository.findIndicatorAggregatesByExperimentId(experimentId);
+        List<IndicatorAggregateRow> rows = rawRows.stream()
+                .map(IndicatorAggregateRow::fromNativeRow)
+                .toList();
 
-        for (ExperimentPart definition : definitions) {
-
-            Experiment experiment = experimentRepository.findWithRunsById(experimentId).orElseThrow(
-                    () -> new NotFoundException("Experiment not found"));
-
-            List<ExperimentPartExecution> executionsForDef = new ArrayList<>();
-            for (ExperimentRun run : experiment.getRuns()) {
-                run.getParts().stream()
-                        .filter(p -> p.getExperimentPart().equals(definition))
-                        .forEach(executionsForDef::add);
-            }
-
-            Set<String> indicatorNames = executionsForDef.stream()
-                    .flatMap(e -> e.getIndicators().stream())
-                    .map(ExperimentPartIndicator::getName)
-                    .collect(Collectors.toSet());
-
-            Map<String, GetExperimentAggregateDataIndicator> indicatorsMap = new HashMap<>();
-
-            for (String indicator : indicatorNames) {
-                DescriptiveStatistics stats = new DescriptiveStatistics();
-                executionsForDef.stream()
-                        .flatMap(e -> e.getIndicators().stream())
-                        .filter(i -> i.getName().equals(indicator))
-                        .forEach(i -> stats.addValue(i.getValue()));
-
-                if (stats.getN() > 0) {
-                    indicatorsMap.put(indicator,
+        Map<Long, Map<String, GetExperimentAggregateDataIndicator>> indicatorsByDefinition = new HashMap<>();
+        for (IndicatorAggregateRow row : rows) {
+            indicatorsByDefinition
+                    .computeIfAbsent(row.definitionId(), __ -> new HashMap<>())
+                    .put(row.indicator(),
                             new GetExperimentAggregateDataIndicator(
-                                    stats.getMin(),
-                                    stats.getMax(),
-                                    stats.getMean(),
-                                    stats.getPercentile(50), // Median
-                                    stats.getPercentile(75) - stats.getPercentile(25), // IQR
-                                    stats.getStandardDeviation()));
-                }
-            }
+                                    row.minValue(),
+                                    row.maxValue(),
+                                    row.meanValue(),
+                                    row.medianValue(),
+                                    row.iqrValue(),
+                                    row.stddevValue()
+                            ));
+        }
+        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
+        for (ExperimentPart definition : definitions) {
+            Map<String, String> params = definition.getParameters().stream()
+                    .collect(Collectors.toMap(
+                            ExperimentPartAlgorithmParameter::getKey,
+                            ExperimentPartAlgorithmParameter::getValue
+                    ));
 
             aggregateDataList.add(new GetExperimentAggregateData(
                     definition.getAlgorithm(),
-                    definition.getParameters().stream().collect(Collectors.toMap(
-                            ExperimentPartAlgorithmParameter::getKey,
-                            ExperimentPartAlgorithmParameter::getValue)),
+                    params,
                     definition.getProblem(),
-                    indicatorsMap,
-                    definition.getBudget()));
+                    indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
+                    definition.getBudget()
+            ));
         }
 
-        return new GetExperimentAggregateResponse(
-                aggregateDataList);
+        return new GetExperimentAggregateResponse(aggregateDataList);
     }
 }
