@@ -61,7 +61,7 @@ public final class ExperimentController {
         return ResponseEntity.ok(experimentService.getExperimentAggregate(id));
     }
 
-    @GetMapping("{id}/{runNo}")
+    @GetMapping("{id}/runs/{runNo}")
     public ResponseEntity<?> getExperimentRun(
             @PathVariable long id,
             @PathVariable long runNo,
@@ -76,7 +76,7 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment run not found"));
     }
 
-    @GetMapping("{id}/{runNo}/{partId}")
+    @GetMapping("{id}/runs/{runNo}/parts/{partId}")
     public ResponseEntity<?> getExperimentPart(@PathVariable long id, @PathVariable long runNo,
             @PathVariable long partId) {
         return experimentService.getExperimentPart(id, runNo, partId)
@@ -93,7 +93,7 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
-    @GetMapping("{id}/{runNo}/status")
+    @GetMapping("{id}/runs/{runNo}/status")
     public ResponseEntity<?> getExperimentRunStatus(@PathVariable long id, @PathVariable long runNo) {
         return experimentService.getExperimentRunStatus(id, runNo)
                 .map(experimentMapper::mapToGetExperimentRunStatusResponse)
@@ -101,7 +101,7 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment run not found"));
     }
 
-    @GetMapping("{id}/{runNo}/{partId}/status")
+    @GetMapping("{id}/runs/{runNo}/parts/{partId}/status")
     public ResponseEntity<?> getExperimentPartStatus(@PathVariable long id, @PathVariable long runNo,
             @PathVariable long partId) {
         return experimentService.getExperimentPartStatus(id, runNo, partId)
@@ -125,7 +125,7 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
-    @GetMapping("{id}/{runNo}/result")
+    @GetMapping("{id}/runs/{runNo}/result")
     public ResponseEntity<?> getExperimentRunResult(
             @PathVariable long id,
             @PathVariable long runNo) {
@@ -143,7 +143,7 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment " + id + " or Run " + runNo + " not found"));
     }
 
-    @GetMapping("{id}/{runNo}/{partId}/result")
+    @GetMapping("{id}/runs/{runNo}/parts/{partId}/result")
     public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long runNo,
             @PathVariable long partId) {
         return experimentService.getExperimentPartResult(id, runNo, partId)
@@ -166,7 +166,7 @@ public final class ExperimentController {
         throw new NotFoundException("Experiment not found");
     }
 
-    @DeleteMapping("{id}/{runNo}")
+    @DeleteMapping("{id}/runs/{runNo}")
     public ResponseEntity<?> deleteExperimentRun(@PathVariable long id, @PathVariable long runNo) {
         if (experimentService.deleteExperimentRun(id, runNo))
             return ResponseEntity.noContent().build();
