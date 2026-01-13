@@ -97,16 +97,16 @@ public class GetExperimentAggregateScenario extends Scenario {
         return table;
     }
 
-    private static String formatDoubleShort(Double v) {
-        if (v == null)
+    private static String formatDoubleShort(Double value) {
+        if (value == null)
             return "-";
-        double x = v;
-        double ax = Math.abs(x);
-        if (ax != 0.0 && (ax < 1e-3 || ax >= 1e4)) {
-            return String.format(Locale.ROOT, "%.3e", x).replace("e+0", "e+").replace("e-0", "e-");
+        double number = value;
+        double absoluteValue = Math.abs(number);
+        if (absoluteValue != 0.0 && (absoluteValue < 1e-3 || absoluteValue >= 1e4)) {
+            return String.format(Locale.ROOT, "%.3e", number).replace("e+0", "e+").replace("e-0", "e-");
         }
-        String s = String.format(Locale.ROOT, "%.4f", x);
-        s = s.replaceAll("0+$", "").replaceAll("\\.$", "");
-        return s.isEmpty() ? "0" : s;
+        String formattedValue  = String.format(Locale.ROOT, "%.4f", number);
+        formattedValue = formattedValue.replaceAll("0+$", "").replaceAll("\\.$", "");
+        return formattedValue.isEmpty() ? "0" : formattedValue ;
     }
 }
