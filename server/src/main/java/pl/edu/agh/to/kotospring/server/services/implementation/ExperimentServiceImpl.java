@@ -27,13 +27,12 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
+import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+
 
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
@@ -340,7 +339,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         for (ExperimentPart definition : definitions) {
 
             Experiment experiment = experimentRepository.findWithRunsById(experimentId).orElseThrow(
-                    () -> new pl.edu.agh.to.kotospring.server.exceptions.NotFoundException("Experiment not found"));
+                    () -> new NotFoundException("Experiment not found"));
 
             List<ExperimentPartExecution> executionsForDef = new ArrayList<>();
             for (ExperimentRun run : experiment.getRuns()) {
@@ -352,12 +351,12 @@ public class ExperimentServiceImpl implements ExperimentService {
             Set<String> indicatorNames = executionsForDef.stream()
                     .flatMap(e -> e.getIndicators().stream())
                     .map(ExperimentPartIndicator::getName)
-                    .collect(java.util.stream.Collectors.toSet());
+                    .collect(Collectors.toSet());
 
-            Map<String, pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentAggregateDataIndicator> indicatorsMap = new java.util.HashMap<>();
+            Map<String, GetExperimentAggregateDataIndicator> indicatorsMap = new HashMap<>();
 
             for (String indicator : indicatorNames) {
-                DescriptiveStatistics stats = new org.apache.commons.math3.stat.descriptive.DescriptiveStatistics();
+                DescriptiveStatistics stats = new DescriptiveStatistics();
                 executionsForDef.stream()
                         .flatMap(e -> e.getIndicators().stream())
                         .filter(i -> i.getName().equals(indicator))
@@ -377,7 +376,7 @@ public class ExperimentServiceImpl implements ExperimentService {
 
             aggregateDataList.add(new GetExperimentAggregateData(
                     definition.getAlgorithm(),
-                    definition.getParameters().stream().collect(java.util.stream.Collectors.toMap(
+                    definition.getParameters().stream().collect(Collectors.toMap(
                             ExperimentPartAlgorithmParameter::getKey,
                             ExperimentPartAlgorithmParameter::getValue)),
                     definition.getProblem(),
