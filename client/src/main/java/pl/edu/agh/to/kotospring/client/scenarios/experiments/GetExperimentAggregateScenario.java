@@ -6,6 +6,7 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.AggregateTableColumn;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentAggregateResponse;
@@ -23,7 +24,17 @@ public class GetExperimentAggregateScenario extends Scenario {
     private long experimentId;
     private static final int FIXED_COLUMNS_NUMBER = 4;
     private static final int MAX_COLUMNS_NUMBER = 5;
-
+    private static final List<AggregateTableColumn> AGGREGATE_TABLE_COLUMNS = List.of(
+            new AggregateTableColumn("Algorithm", 20),
+            new AggregateTableColumn("Problem", 20),
+            new AggregateTableColumn("Budget", 10),
+            new AggregateTableColumn("Indicator", 20),
+            new AggregateTableColumn("Min", 15),
+            new AggregateTableColumn("Max", 15),
+            new AggregateTableColumn("Mean", 15),
+            new AggregateTableColumn("Median", 15),
+            new AggregateTableColumn("SD", 15)
+    );
     public GetExperimentAggregateScenario(ExperimentClient client) {
         this.client = client;
     }
@@ -48,8 +59,10 @@ public class GetExperimentAggregateScenario extends Scenario {
             return new SimpleMessageView("Aggregations", "No aggregated data available.");
         }
 
-        List<String> headers = new ArrayList<>(
-                List.of("Algorithm", "Problem", "Budget", "Indicator", "Min", "Max", "Mean", "Median", "SD"));
+        List<String> headers = AGGREGATE_TABLE_COLUMNS.stream()
+                .map(AggregateTableColumn::header)
+                .toList();
+
         List<List<String>> rows = new ArrayList<>();
 
         for (var data : resp) {
@@ -69,12 +82,15 @@ public class GetExperimentAggregateScenario extends Scenario {
             }
         }
 
-        List<Integer> widths = List.of(20, 20, 10, 20, 15, 15, 15, 15, 15);
+        List<Integer> widths = AGGREGATE_TABLE_COLUMNS.stream()
+                .map(AggregateTableColumn::width)
+                .toList();
+
         SimpleTableView table = new SimpleTableView(headers, rows, widths);
         table.setTitle("Aggregated Results for Experiment ID: " + experimentId);
         table.setShowBorder(true);
         table.setEnableWrapping(false);
-        if (headers.size() > MAX_COLUMNS_NUMBER) {
+        if (AGGREGATE_TABLE_COLUMNS.size() > MAX_COLUMNS_NUMBER) {
             table.enableColumnPaging(FIXED_COLUMNS_NUMBER, MAX_COLUMNS_NUMBER);
         }
         configure(table);
