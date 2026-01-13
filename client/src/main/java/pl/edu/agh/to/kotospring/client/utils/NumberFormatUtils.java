@@ -20,18 +20,14 @@ public final class NumberFormatUtils {
         return formattedValue.isEmpty() ? "0" : formattedValue ;
     }
     public static String formatAny(Object value) {
-        if (value == null)
-            return "-";
-        if (value instanceof Double d)
-            return formatDoubleShort(d);
-        if (value instanceof Float f)
-            return formatDoubleShort(f.doubleValue());
-        if (value instanceof Number n)
-            return formatDoubleShort(n.doubleValue());
-        return String.valueOf(value);
+        return switch (value) {
+            case null -> "-";
+            case Number number -> formatDoubleShort(number.doubleValue());
+            default -> String.valueOf(value);
+        };
     }
 
-    public static String formatDouble(Double v) {
-        return formatDoubleShort(v);
+    public static String formatDouble(Double value) {
+        return formatDoubleShort(value);
     }
 }
