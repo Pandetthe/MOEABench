@@ -10,6 +10,7 @@ import pl.edu.agh.to.kotospring.client.views.AggregateTableColumn;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentAggregateResponse;
+import pl.edu.agh.to.kotospring.client.utils.NumberFormatUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,11 +74,11 @@ public class GetExperimentAggregateScenario extends Scenario {
                 row.add(String.valueOf(data.budget()));
                 row.add(entry.getKey());
                 var ind = entry.getValue();
-                row.add(formatDoubleShort(ind.min()));
-                row.add(formatDoubleShort(ind.max()));
-                row.add(formatDoubleShort(ind.mean()));
-                row.add(formatDoubleShort(ind.median()));
-                row.add(formatDoubleShort(ind.standardDeviation()));
+                row.add(NumberFormatUtils.formatDoubleShort(ind.min()));
+                row.add(NumberFormatUtils.formatDoubleShort(ind.max()));
+                row.add(NumberFormatUtils.formatDoubleShort(ind.mean()));
+                row.add(NumberFormatUtils.formatDoubleShort(ind.median()));
+                row.add(NumberFormatUtils.formatDoubleShort(ind.standardDeviation()));
                 rows.add(row);
             }
         }
@@ -97,16 +98,5 @@ public class GetExperimentAggregateScenario extends Scenario {
         return table;
     }
 
-    private static String formatDoubleShort(Double value) {
-        if (value == null)
-            return "-";
-        double number = value;
-        double absoluteValue = Math.abs(number);
-        if (absoluteValue != 0.0 && (absoluteValue < 1e-3 || absoluteValue >= 1e4)) {
-            return String.format(Locale.ROOT, "%.3e", number).replace("e+0", "e+").replace("e-0", "e-");
-        }
-        String formattedValue  = String.format(Locale.ROOT, "%.4f", number);
-        formattedValue = formattedValue.replaceAll("0+$", "").replaceAll("\\.$", "");
-        return formattedValue.isEmpty() ? "0" : formattedValue ;
-    }
+
 }

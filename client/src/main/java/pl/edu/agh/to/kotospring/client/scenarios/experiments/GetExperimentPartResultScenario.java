@@ -11,6 +11,7 @@ import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.AlgorithmResult;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartResultResponse;
+import pl.edu.agh.to.kotospring.client.utils.NumberFormatUtils;
 
 import java.util.*;
 
@@ -80,7 +81,7 @@ public class GetExperimentPartResultScenario extends Scenario {
         List<String> headers = List.of("Indicator", "Value");
         List<List<String>> rows = new ArrayList<>();
         for (var entry : indicators.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
-            rows.add(List.of(entry.getKey(), formatDoubleShort(entry.getValue())));
+            rows.add(List.of(entry.getKey(), NumberFormatUtils.formatDoubleShort(entry.getValue())));
         }
 
         SimpleTableView table = new SimpleTableView(headers, rows, List.of(20, 20));
@@ -120,11 +121,11 @@ public class GetExperimentPartResultScenario extends Scenario {
                     row.add(String.valueOf(r));
                 } else {
                     for (String k : varKeys)
-                        row.add(formatAny(r.variables() == null ? null : r.variables().get(k)));
+                        row.add(NumberFormatUtils.formatAny(r.variables() == null ? null : r.variables().get(k)));
                     for (String k : objKeys)
-                        row.add(formatDouble(r.objectives() == null ? null : r.objectives().get(k)));
+                        row.add(NumberFormatUtils.formatDouble(r.objectives() == null ? null : r.objectives().get(k)));
                     for (String k : conKeys)
-                        row.add(formatDouble(r.constraints() == null ? null : r.constraints().get(k)));
+                        row.add(NumberFormatUtils.formatDouble(r.constraints() == null ? null : r.constraints().get(k)));
                 }
                 rows.add(row);
             }
@@ -149,34 +150,8 @@ public class GetExperimentPartResultScenario extends Scenario {
         return (map == null || map.isEmpty()) ? List.of() : new ArrayList<>(map.keySet());
     }
 
-    private static String formatAny(Object v) {
-        if (v == null)
-            return "-";
-        if (v instanceof Double d)
-            return formatDoubleShort(d);
-        if (v instanceof Float f)
-            return formatDoubleShort(f.doubleValue());
-        if (v instanceof Number n)
-            return formatDoubleShort(n.doubleValue());
-        return String.valueOf(v);
-    }
 
-    private static String formatDouble(Double v) {
-        return formatDoubleShort(v);
-    }
 
-    private static String formatDoubleShort(Double v) {
-        if (v == null)
-            return "-";
-        double x = v;
-        double ax = Math.abs(x);
-        if (ax != 0.0 && (ax < 1e-3 || ax >= 1e4)) {
-            return String.format(Locale.ROOT, "%.3e", x).replace("e+0", "e+").replace("e-0", "e-");
-        }
-        String s = String.format(Locale.ROOT, "%.4f", x);
-        s = s.replaceAll("0+$", "").replaceAll("\\.$", "");
-        return s.isEmpty() ? "0" : s;
-    }
 
     private static List<Integer> widths(List<String> headers, List<List<String>> rows) {
         int cols = headers.size();
