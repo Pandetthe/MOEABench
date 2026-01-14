@@ -7,25 +7,40 @@ import org.springframework.lang.Nullable;
 import org.springframework.shell.component.message.ShellMessageBuilder;
 import org.springframework.shell.component.view.control.*;
 import org.springframework.shell.component.view.control.cell.ListCell;
+import org.springframework.shell.component.view.event.KeyHandler;
+import org.springframework.shell.component.view.event.KeyEvent;
 import org.springframework.shell.component.view.event.MouseEvent;
 import org.springframework.shell.component.view.screen.Screen;
 import org.springframework.shell.geom.Rectangle;
 import org.springframework.util.Assert;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
+import pl.edu.agh.to.kotospring.client.models.MenuOption;
+import pl.edu.agh.to.kotospring.client.models.SelectableItem;
 
 public class ResizingListView<T> extends BoxView {
     private final List<T> items;
     private final List<ListCell<T>> cells;
     private final ListView.ItemStyle itemStyle;
-    private int start;
-    private int pos;
+    protected int start;
+    protected int pos;
     private final Set<Integer> selected;
     private BiFunction<ResizingListView<T>, T, ListCell<T>> factory;
 
-    private int rowHeight = 1;
+    private Runnable onBoundaryNext;
+    private Runnable onBoundaryPrev;
+
+    public void setOnBoundaryNext(Runnable onBoundaryNext) {
+        this.onBoundaryNext = onBoundaryNext;
+    }
+
+    public void setOnBoundaryPrev(Runnable onBoundaryPrev) {
+        this.onBoundaryPrev = onBoundaryPrev;
+    }
+
+    protected int rowHeight = 1;
 
     private boolean autoRunOnOpen = false;
     private boolean centerVertically = false;
+    private boolean enableWrapping = true;
 
     public ResizingListView() {
         this(ListView.ItemStyle.NOCHECK);
@@ -59,18 +74,51 @@ public class ResizingListView<T> extends BoxView {
         this.autoRunOnOpen = autoRunOnOpen;
     }
 
+    public void setEnableWrapping(boolean enableWrapping) {
+        this.enableWrapping = enableWrapping;
+    }
+
+    @Override
+    public KeyHandler getKeyHandler() {
+        return (args) -> {
+            int current = this.start + this.pos;
+            int count = this.items.size();
+            int plainKey = args.event().getPlainKey();
+
+            KeyHandler.KeyHandlerResult result = super.getKeyHandler().handle(args);
+
+            if (result != null && result.consumed() && !enableWrapping) {
+                if (plainKey == KeyEvent.Key.CursorUp && current <= 0) {
+                    if (onBoundaryPrev != null) {
+                        onBoundaryPrev.run();
+                        return KeyHandler.resultOf(args.event(), true, null);
+                    }
+                    return KeyHandler.resultOf(args.event(), false, null);
+                }
+                if (plainKey == KeyEvent.Key.CursorDown && (count == 0 || current >= count - 1)) {
+                    if (onBoundaryNext != null) {
+                        onBoundaryNext.run();
+                        return KeyHandler.resultOf(args.event(), true, null);
+                    }
+                    return KeyHandler.resultOf(args.event(), false, null);
+                }
+            }
+            return result;
+        };
+    }
+
     @Override
     protected void initInternal() {
         super.initInternal();
         this.registerViewCommand(ViewCommand.LINE_UP, this::up);
         this.registerViewCommand(ViewCommand.LINE_DOWN, this::down);
-        this.registerKeyBinding(1048576, ViewCommand.LINE_UP);
-        this.registerKeyBinding(1048577, ViewCommand.LINE_DOWN);
-        this.registerKeyBinding(1048580, this::enter);
-        this.registerKeyBinding(32, this::space);
-        this.registerMouseBinding(516, ViewCommand.LINE_UP);
-        this.registerMouseBinding(1028, ViewCommand.LINE_DOWN);
-        this.registerMouseBinding(65, this::click);
+        this.registerKeyBinding(KeyEvent.Key.CursorUp, ViewCommand.LINE_UP);
+        this.registerKeyBinding(KeyEvent.Key.CursorDown, ViewCommand.LINE_DOWN);
+        this.registerKeyBinding(KeyEvent.Key.Enter, this::enter);
+        this.registerKeyBinding(KeyEvent.Key.Space, this::space);
+        this.registerMouseBinding(MouseEvent.Type.Wheel | MouseEvent.Button.Button1, ViewCommand.LINE_UP);
+        this.registerMouseBinding(MouseEvent.Type.Wheel | MouseEvent.Button.Button2, ViewCommand.LINE_DOWN);
+        this.registerMouseBinding(MouseEvent.Type.Released | MouseEvent.Button.Button1, this::click);
     }
 
     private void updateCells() {
@@ -80,6 +128,16 @@ public class ResizingListView<T> extends BoxView {
             c.setItemStyle(this.getItemStyle());
             this.cells.add(c);
         }
+    }
+
+    private boolean isSelectable(int index) {
+        if (index < 0 || index >= items.size())
+            return false;
+        T item = items.get(index);
+        if (item instanceof SelectableItem s) {
+            return s.isSelectable();
+        }
+        return true;
     }
 
     public void setItems(@Nullable List<T> items) {
@@ -92,11 +150,22 @@ public class ResizingListView<T> extends BoxView {
             this.pos = -1;
         } else {
             this.start = 0;
-            this.pos = 0;
+            this.pos = -1;
+            for (int i = 0; i < this.items.size(); i++) {
+                if (isSelectable(i)) {
+                    this.pos = i;
+                    break;
+                }
+            }
+            if (this.pos == -1) {
+                this.start = -1;
+                this.pos = -1;
+            }
         }
         this.updateCells();
     }
 
+    @Override
     protected void drawInternal(Screen screen) {
         if (this.start > -1 && this.pos > -1) {
             Rectangle rect = this.getInnerRect();
@@ -154,33 +223,53 @@ public class ResizingListView<T> extends BoxView {
 
     private void scrollIndex(boolean up) {
         int size = this.items.size();
+        if (size == 0)
+            return;
         int maxItems = Math.max(1, this.getInnerRect().height() / rowHeight);
+        int current = this.start + this.pos;
 
-        int active = this.start + this.pos;
+        int next = -1;
         if (up) {
-            if (this.start > 0 && this.pos == 0) {
-                --this.start;
-            } else if (this.start + this.pos <= 0) {
-                this.start = size - Math.min(maxItems, size);
-                this.pos = Math.min(maxItems, size) - 1;
-            } else {
-                --this.pos;
-            }
-        } else if (this.start + this.pos + 1 < Math.min(this.start + maxItems, size)) {
-            ++this.pos;
-        } else if (this.start + this.pos + 1 >= size) {
-            this.start = 0;
-            this.pos = 0;
-        } else {
-            if (this.start + maxItems < size) {
-                this.start++;
-            } else {
-                if (active < size - 1) {
-                    this.pos++;
-                } else {
-                    this.start = 0;
-                    this.pos = 0;
+            for (int i = current - 1; i >= 0; i--) {
+                if (isSelectable(i)) {
+                    next = i;
+                    break;
                 }
+            }
+            if (next == -1 && enableWrapping) {
+                for (int i = size - 1; i > current; i--) {
+                    if (isSelectable(i)) {
+                        next = i;
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (int i = current + 1; i < size; i++) {
+                if (isSelectable(i)) {
+                    next = i;
+                    break;
+                }
+            }
+            if (next == -1 && enableWrapping) {
+                for (int i = 0; i < current; i++) {
+                    if (isSelectable(i)) {
+                        next = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (next != -1 && next != current) {
+            if (next < this.start) {
+                this.start = next;
+                this.pos = 0;
+            } else if (next >= this.start + maxItems) {
+                this.start = next - maxItems + 1;
+                this.pos = maxItems - 1;
+            } else {
+                this.pos = next - this.start;
             }
         }
     }
@@ -188,15 +277,22 @@ public class ResizingListView<T> extends BoxView {
     private void scrollIndex(int step) {
         if (this.start >= 0 || this.pos >= 0) {
             if (step < 0) {
-                for (int i = step; i < 0; ++i) this.scrollIndex(true);
+                for (int i = step; i < 0; ++i)
+                    this.scrollIndex(true);
             } else if (step > 0) {
-                for (int i = step; i > 0; --i) this.scrollIndex(false);
+                for (int i = step; i > 0; --i)
+                    this.scrollIndex(false);
             }
         }
     }
 
-    private void up() { this.scrollIndex(-1); }
-    private void down() { this.scrollIndex(1); }
+    private void up() {
+        this.scrollIndex(-1);
+    }
+
+    private void down() {
+        this.scrollIndex(1);
+    }
 
     private T selectedItem() {
         int active = this.start + this.pos;
@@ -218,9 +314,10 @@ public class ResizingListView<T> extends BoxView {
 
     private void openSelected() {
         T item = selectedItem();
-        if (item == null) return;
+        if (item == null)
+            return;
 
-        if (autoRunOnOpen && item instanceof ExperimentOption opt && opt.action() != null) {
+        if (autoRunOnOpen && item instanceof MenuOption opt && opt.action() != null) {
             opt.action().run();
             return;
         }
@@ -232,7 +329,8 @@ public class ResizingListView<T> extends BoxView {
         int active = this.start + this.pos;
         if (this.itemStyle == ListView.ItemStyle.CHECKED) {
             boolean removed = this.selected.remove(active);
-            if (!removed) this.selected.add(active);
+            if (!removed)
+                this.selected.add(active);
         } else if (this.itemStyle == ListView.ItemStyle.RADIO) {
             this.selected.clear();
             this.selected.add(active);
@@ -256,7 +354,7 @@ public class ResizingListView<T> extends BoxView {
         int index = (event.y() - yStart) / rowHeight;
         int active = this.start + index;
 
-        if (active >= 0 && active < this.items.size()) {
+        if (active >= 0 && active < this.items.size() && isSelectable(active)) {
             this.pos = index;
             if (this.itemStyle == ListView.ItemStyle.NOCHECK) {
                 openSelected();
@@ -272,7 +370,8 @@ public class ResizingListView<T> extends BoxView {
         }
     }
 
-    public record ResizingListViewOpenSelectedItemEvent<T>(View view, ResizingListViewItemEventArgs<T> args) implements ViewEvent {
+    public record ResizingListViewOpenSelectedItemEvent<T>(View view, ResizingListViewItemEventArgs<T> args)
+            implements ViewEvent {
         public static <T> ResizingListViewOpenSelectedItemEvent<T> of(View view, T item) {
             return new ResizingListViewOpenSelectedItemEvent<>(view, ResizingListViewItemEventArgs.of(item));
         }

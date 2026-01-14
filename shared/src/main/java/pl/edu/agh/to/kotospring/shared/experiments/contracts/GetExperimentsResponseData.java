@@ -9,6 +9,7 @@ public record GetExperimentsResponseData(
         ExperimentStatus status,
         OffsetDateTime queuedAt,
         OffsetDateTime startedAt,
-        OffsetDateTime finishedAt
+        OffsetDateTime finishedAt,
+        long runCount
 ) {
 }

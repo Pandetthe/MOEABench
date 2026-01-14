@@ -1,4 +1,4 @@
-# TO_SR1500_koTOspring
+# TO_SR1500_koTOspring - Changelog
 
 # Milestone I:
 
@@ -115,5 +115,36 @@ GET /indicators
 - pobranie plików z repozytorium
 - otworzenie za pomocą IDE (np. IntelliJ IDEA)
 - uruchomienie aplikacji clienta i servera (sprawdzanie endpointów możliwe za pomocą Swaggera)
+
+# Milestone II:
+
+## Rozszerzenie modelu eksperymentu
+
+Rozszerzenie modelu o klasę **ExperimentRun**
+- klasa Experiment z milestone'a I została klasą ExperimentRun, która stanowi jedno z wywołań nowej klasy Experiment
+- aktualna struktura: **Experiment** zawiera w sobie określoną przy tworzeniu listę pojedynczych wywołań eksperymentu (**ExperimentRun**), które z kolei zawierają swoje **ExperimentPart**, jak w milestonie I
+  (Experiment -> ExperimentRun -> ExperimentPart)
+
+## Dodanie filtrów
+
+Aktualnie eksperymenty, ich runy oraz party runów można filtrować za pomocą parametrów: **status, nazwa algorytmu, nazwa problemu, nazwy indykatorów, budżet, daty rozpoczęcia i zakończenia**
+
+## Agregacja wyników
+
+Pobieranie otrzymanych wyników zgodnie z miarami statystycznymi, takimi jak **średnia, mediana, odchylenie standardowe**
+
+## Usuwanie całych eksperymentów, a także ich konkretnych runów
+
+## Refactor CLI
+
+Używane w poprzednim milestonie CLI zostało usunięte i zastąpione nowym, przyjemniejszym w obsłudze CLI, napisanym za pomocą Spring Shella i TerminalUI
+
+Instrukcja uruchomienia CLI:
+- uruchom plik `client-external-console.bat` znajdujący się w projekcie
+- poczekaj, aż okienko terminala będzie nasłuchiwać na porcie 5005
+- za pomocą IntelliJ IDEA (lub innego IDE) ustaw konfigurację `Remote JVM Debug`, jako port ustawiając wartość 5005
+- uruchom powyższą konfigurację w trybie Debug
+
+
 
 

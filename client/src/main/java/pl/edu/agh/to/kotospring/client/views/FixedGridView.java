@@ -49,9 +49,16 @@ public class FixedGridView extends BoxView {
         return this;
     }
 
-    public FixedGridView addItem(View view, int row, int column, int rowSpan, int colSpan, int minGridHeight, int minGridWidth) {
+    public FixedGridView addItem(View view, int row, int column, int rowSpan, int colSpan, int minGridHeight,
+            int minGridWidth) {
         GridItem gridItem = new GridItem(view, row, column, colSpan, rowSpan, minGridHeight, minGridWidth, false);
         this.gridItems.add(gridItem);
+
+        if (view instanceof ResizingListView<?> resizable) {
+            resizable.setOnBoundaryNext(this::nextView);
+            resizable.setOnBoundaryPrev(this::prevView);
+        }
+
         return this;
     }
 
@@ -81,7 +88,7 @@ public class FixedGridView extends BoxView {
         return (args) -> {
             View focus = null;
 
-            for(GridItem i : this.gridItems) {
+            for (GridItem i : this.gridItems) {
                 MouseHandler.MouseHandlerResult r = i.view.getMouseHandler().handle(args);
                 if (r.focus() != null) {
                     focus = r.focus();
@@ -89,7 +96,7 @@ public class FixedGridView extends BoxView {
                 }
             }
 
-            return MouseHandler.resultOf(args.event(), true, focus, (View)null);
+            return MouseHandler.resultOf(args.event(), true, focus, (View) null);
         };
     }
 
@@ -97,7 +104,7 @@ public class FixedGridView extends BoxView {
         View toFocus = null;
         boolean found = false;
 
-        for(GridItem i : this.gridItems) {
+        for (GridItem i : this.gridItems) {
             if (i.visible) {
                 if (toFocus == null) {
                     toFocus = i.view;
@@ -162,7 +169,7 @@ public class FixedGridView extends BoxView {
         log.trace("getKeyHandler()");
         KeyHandler handler = null;
 
-        for(GridItem i : this.gridItems) {
+        for (GridItem i : this.gridItems) {
             if (i.view.hasFocus()) {
                 handler = i.view.getKeyHandler();
                 break;
@@ -176,7 +183,7 @@ public class FixedGridView extends BoxView {
         log.trace("getHotKeyHandler()");
         KeyHandler handler = null;
 
-        for(GridItem i : this.gridItems) {
+        for (GridItem i : this.gridItems) {
             if (handler == null) {
                 handler = i.view.getHotKeyHandler();
             } else {
@@ -192,7 +199,7 @@ public class FixedGridView extends BoxView {
     }
 
     public boolean hasFocus() {
-        for(GridItem i : this.gridItems) {
+        for (GridItem i : this.gridItems) {
             if (i.view.hasFocus()) {
                 return true;
             }
@@ -210,11 +217,12 @@ public class FixedGridView extends BoxView {
         int height = rect.height();
         Map<View, GridItem> items = new HashMap<>();
 
-        for(GridItem item : this.gridItems) {
+        for (GridItem item : this.gridItems) {
             item.visible = false;
             if (item.width > 0 && item.height > 0 && width >= item.minGridWidth && height >= item.minGridHeight) {
-                GridItem previousItem = (GridItem)items.get(item.view);
-                if (previousItem == null || item.minGridWidth >= previousItem.minGridWidth || item.minGridHeight >= previousItem.minGridHeight) {
+                GridItem previousItem = (GridItem) items.get(item.view);
+                if (previousItem == null || item.minGridWidth >= previousItem.minGridWidth
+                        || item.minGridHeight >= previousItem.minGridHeight) {
                     items.put(item.view, item);
                 }
             }
@@ -223,7 +231,7 @@ public class FixedGridView extends BoxView {
         int rows = this.rowSize.length;
         int columns = this.columnSize.length;
 
-        for(GridItem item : items.values()) {
+        for (GridItem item : items.values()) {
             int rowEnd = item.row + item.height;
             if (rowEnd > rows) {
                 rows = rowEnd;
@@ -245,7 +253,7 @@ public class FixedGridView extends BoxView {
             int proportionalWidth = 0;
             int proportionalHeight = 0;
 
-            for(int index = 0; index < this.rowSize.length; ++index) {
+            for (int index = 0; index < this.rowSize.length; ++index) {
                 int row = this.rowSize[index];
                 if (row > 0) {
                     if (row < this.minHeight) {
@@ -261,7 +269,7 @@ public class FixedGridView extends BoxView {
                 }
             }
 
-            for(int index = 0; index < this.columnSize.length; ++index) {
+            for (int index = 0; index < this.columnSize.length; ++index) {
                 int column = this.columnSize[index];
                 if (column > 0) {
                     if (column < this.minWidth) {
@@ -293,7 +301,7 @@ public class FixedGridView extends BoxView {
                 proportionalWidth += columns - this.columnSize.length;
             }
 
-            for(int index = 0; index < rows; ++index) {
+            for (int index = 0; index < rows; ++index) {
                 int row = 0;
                 if (index < this.rowSize.length) {
                     row = this.rowSize[index];
@@ -317,7 +325,7 @@ public class FixedGridView extends BoxView {
                 }
             }
 
-            for(int index = 0; index < columns; ++index) {
+            for (int index = 0; index < columns; ++index) {
                 int column = 0;
                 if (index < this.columnSize.length) {
                     column = this.columnSize[index];
@@ -348,7 +356,7 @@ public class FixedGridView extends BoxView {
                 ++rowY;
             }
 
-            for(int index = 0; index < rowHeight.length; ++index) {
+            for (int index = 0; index < rowHeight.length; ++index) {
                 int row = rowHeight[index];
                 rowPos[index] = rowY;
                 int gap = this.gapRows;
@@ -359,7 +367,7 @@ public class FixedGridView extends BoxView {
                 rowY += row + gap;
             }
 
-            for(int index = 0; index < columnWidth.length; ++index) {
+            for (int index = 0; index < columnWidth.length; ++index) {
                 int column = columnWidth[index];
                 columnPos[index] = columnX;
                 int gap = this.gapColumns;
@@ -372,19 +380,19 @@ public class FixedGridView extends BoxView {
 
             GridItem focus = null;
 
-            for(Map.Entry<View, GridItem> entry : items.entrySet()) {
-                View primitive = (View)entry.getKey();
-                GridItem item = (GridItem)entry.getValue();
+            for (Map.Entry<View, GridItem> entry : items.entrySet()) {
+                View primitive = (View) entry.getKey();
+                GridItem item = (GridItem) entry.getValue();
                 int px = columnPos[item.column];
                 int py = rowPos[item.row];
                 int pw = 0;
                 int ph = 0;
 
-                for(int index = 0; index < item.height; ++index) {
+                for (int index = 0; index < item.height; ++index) {
                     ph += rowHeight[item.row + index];
                 }
 
-                for(int index = 0; index < item.width; ++index) {
+                for (int index = 0; index < item.width; ++index) {
                     pw += columnWidth[item.column + index];
                 }
 
@@ -413,7 +421,7 @@ public class FixedGridView extends BoxView {
                 add = this.gapRows;
             }
 
-            for(int index = 0; index < rowHeight.length; ++index) {
+            for (int index = 0; index < rowHeight.length; ++index) {
                 int height2 = rowHeight[index];
                 if (index >= this.rowOffset) {
                     break;
@@ -426,7 +434,7 @@ public class FixedGridView extends BoxView {
                 add = this.gapColumns;
             }
 
-            for(int index = 0; index < columnWidth.length; ++index) {
+            for (int index = 0; index < columnWidth.length; ++index) {
                 int width2 = columnWidth[index];
                 if (index >= this.columnOffset) {
                     break;
@@ -456,7 +464,7 @@ public class FixedGridView extends BoxView {
             int from = 0;
             int to = 0;
 
-            for(int index = 0; index < rowPos.length; ++index) {
+            for (int index = 0; index < rowPos.length; ++index) {
                 int pos = rowPos[index];
                 if (pos - offsetY < 0) {
                     from = index + 1;
@@ -478,7 +486,7 @@ public class FixedGridView extends BoxView {
             from = 0;
             to = 0;
 
-            for(int index = 0; index < columnPos.length; ++index) {
+            for (int index = 0; index < columnPos.length; ++index) {
                 int pos = columnPos[index];
                 if (pos - offsetX < 0) {
                     from = index + 1;
@@ -497,9 +505,9 @@ public class FixedGridView extends BoxView {
                 this.columnOffset = to;
             }
 
-            for(Map.Entry<View, GridItem> entry : items.entrySet()) {
-                View view = (View)entry.getKey();
-                GridItem item = (GridItem)entry.getValue();
+            for (Map.Entry<View, GridItem> entry : items.entrySet()) {
+                View view = (View) entry.getKey();
+                GridItem item = (GridItem) entry.getValue();
                 if (item.visible) {
                     item.x -= offsetX;
                     item.y -= offsetY;
@@ -556,7 +564,8 @@ public class FixedGridView extends BoxView {
         int w;
         int h;
 
-        GridItem(View view, int row, int column, int width, int height, int minGridHeight, int minGridWidth, boolean visible) {
+        GridItem(View view, int row, int column, int width, int height, int minGridHeight, int minGridWidth,
+                boolean visible) {
             this.view = view;
             this.row = row;
             this.column = column;

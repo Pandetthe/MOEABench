@@ -6,20 +6,19 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequest;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentRequestData;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.CreateExperimentResponse;
+import pl.edu.agh.to.kotospring.client.services.ExperimentErrorHandler;
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU, skipOnReturn = true)
+@ScenarioComponent(name = "Create new Experiment", type = ScenarioType.EXPERIMENT_MENU)
 public class CreateExperimentScenario extends Scenario {
 
     private final ExperimentClient client;
@@ -37,6 +36,7 @@ public class CreateExperimentScenario extends Scenario {
         form.addInput("algorithms", "Algorithms (comma separated)");
         form.addInput("indicators", "Indicators (comma separated)");
         form.addInput("budget", "Budget (integer)");
+        form.addInput("runCount", "Number of runs (integer)");
         form.setSubmitAction("Create", this::handleCreateAction);
 
         configure(form);
@@ -51,67 +51,73 @@ public class CreateExperimentScenario extends Scenario {
             List<String> problemList = List.of(data.get("problems").split(","));
             Set<String> indicatorSet = Set.of(data.get("indicators").split(","));
             int budget = Integer.parseInt(data.get("budget"));
-            CreateExperimentRequest request = new CreateExperimentRequest();
+            int runCount = Integer.parseInt(data.get("runCount"));
+
+            List<CreateExperimentRequestData> requestDataList = new ArrayList<>();
+            CreateExperimentRequest request = new CreateExperimentRequest(requestDataList, runCount);
 
             for (String algorithm : algorithmList) {
-                if (algorithm.isBlank()) continue;
+                if (algorithm.isBlank())
+                    continue;
                 for (String problem : problemList) {
-                    if (problem.isBlank()) continue;
+                    if (problem.isBlank())
+                        continue;
                     Map<String, Object> algorithmParameters = Map.of();
-                    CreateExperimentRequestData requestData =
-                            new CreateExperimentRequestData(
-                                    problem.trim(),
-                                    algorithm.trim(),
-                                    algorithmParameters,
-                                    indicatorSet,
-                                    budget
-                            );
-                    request.add(requestData);
+                    CreateExperimentRequestData requestData = new CreateExperimentRequestData(
+                            problem.trim(),
+                            algorithm.trim(),
+                            algorithmParameters,
+                            indicatorSet,
+                            budget);
+                    requestDataList.add(requestData);
                 }
             }
 
-            if (request.isEmpty()) {
+            if (requestDataList.isEmpty()) {
                 throw new IllegalArgumentException("No valid experiments defined. Check inputs.");
             }
             CreateExperimentResponse response = client.createExperiment(request);
 
             resultView = new SimpleMessageView(
                     "Success",
-                    "Experiment successfully created with ID: " + response.id()
-            );
+                    "Experiment successfully created with ID: " + response.id());
+
+            showResult(resultView, true);
 
         } catch (RestClientResponseException e) {
             resultView = errorHandler.httpErrorView(
-                    e.getRawStatusCode(),
+                    e.getStatusCode().value(),
                     e.getStatusText(),
-                    e.getResponseBodyAsString()
-            );
+                    e.getResponseBodyAsString());
+            showResult(resultView, false);
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
-            resultView = errorHandler.httpErrorView(e.getRawStatusCode(),
+            resultView = errorHandler.httpErrorView(e.getStatusCode().value(),
                     e.getStatusText(),
                     body);
+            showResult(resultView, false);
         } catch (NumberFormatException e) {
             resultView = new SimpleMessageView(
                     "Invalid input",
-                    "Budget must be a valid integer."
-            );
+                    "Budget must be a valid integer.");
+            showResult(resultView, false);
         } catch (Exception e) {
             resultView = new SimpleMessageView(
                     "Error",
                     "Unexpected error: " +
-                            (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
-            );
+                            (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+            showResult(resultView, false);
         }
-        configure(resultView);
+    }
 
-        View finalResultView = resultView;
-        navigate(ScenarioContext.of(resultView, null, () -> {
-            if (finalResultView instanceof SimpleMessageView mv) {
-                getTerminalUI().setFocus(mv.getContentList());
-            } else {
-                getTerminalUI().setFocus(finalResultView);
-            }
-        }, null));
+    private void showResult(View resultView, boolean replace) {
+        configure(resultView);
+        Runnable onStart = () -> getTerminalUI().setFocus(resultView);
+
+        if (replace) {
+            replace(resultView, onStart);
+        } else {
+            navigate(createContext(resultView, onStart));
+        }
     }
 }

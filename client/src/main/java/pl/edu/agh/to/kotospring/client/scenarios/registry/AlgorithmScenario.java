@@ -1,8 +1,7 @@
-package pl.edu.agh.to.kotospring.client.scenarios;
+package pl.edu.agh.to.kotospring.client.scenarios.registry;
 
 import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.geom.HorizontalAlign;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.RegistryClient;

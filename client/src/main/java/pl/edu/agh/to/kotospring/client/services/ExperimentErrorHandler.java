@@ -1,4 +1,4 @@
-package pl.edu.agh.to.kotospring.client.scenarios.experiments;
+package pl.edu.agh.to.kotospring.client.services;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,9 +25,11 @@ public class ExperimentErrorHandler {
     }
 
     private String extractServerMessage(String body) {
-        if (body == null) return "";
+        if (body == null)
+            return "";
         String trimmed = body.trim();
-        if (trimmed.isEmpty()) return "";
+        if (trimmed.isEmpty())
+            return "";
 
         if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
             return trimmed;
@@ -35,9 +37,12 @@ public class ExperimentErrorHandler {
 
         try {
             JsonNode node = OBJECT_MAPPER.readTree(trimmed);
-            if (node.hasNonNull("message")) return node.get("message").asText();
-            if (node.hasNonNull("error")) return node.get("error").asText();
-            if (node.hasNonNull("detail")) return node.get("detail").asText();
+            if (node.hasNonNull("message"))
+                return node.get("message").asText();
+            if (node.hasNonNull("error"))
+                return node.get("error").asText();
+            if (node.hasNonNull("detail"))
+                return node.get("detail").asText();
             return trimmed;
         } catch (Exception ignored) {
             return trimmed;

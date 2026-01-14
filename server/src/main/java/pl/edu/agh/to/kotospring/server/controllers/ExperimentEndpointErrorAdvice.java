@@ -8,14 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import pl.edu.agh.to.kotospring.server.entities.Experiment;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentPart;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
+import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentRepository;
+import pl.edu.agh.to.kotospring.server.repositories.ExperimentRunRepository;
+import pl.edu.agh.to.kotospring.shared.experiments.ErrorResponse;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,107 +23,78 @@ import java.util.regex.Pattern;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ExperimentEndpointErrorAdvice {
+    private static final Pattern FULL_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)/(\\d+)/(\\d+)(?:/.*)?$");
 
-    private static final Pattern EXPERIMENT_ID =
-            Pattern.compile("^/experiments/(\\d+)(?:/.*)?$");
-
-    private static final Pattern EXPERIMENT_ID_AND_PART_ID =
-            Pattern.compile("^/experiments/(\\d+)/(?:status|result)/(\\d+)$");
-
-    private static final Pattern DELETE_EXPERIMENT =
-            Pattern.compile("^/experiments/(\\d+)$");
+    private static final Pattern EXPERIMENT_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)(?:/.*)?$");
 
     private final ExperimentRepository experimentRepository;
-    private final ExperimentPartRepository experimentPartRepository;
+    private final ExperimentRunRepository experimentRunRepository;
+    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
 
     public ExperimentEndpointErrorAdvice(ExperimentRepository experimentRepository,
-                                         ExperimentPartRepository experimentPartRepository) {
+            ExperimentRunRepository experimentRunRepository,
+            ExperimentPartExecutionRepository experimentPartExecutionRepository) {
         this.experimentRepository = experimentRepository;
-        this.experimentPartRepository = experimentPartRepository;
+        this.experimentRunRepository = experimentRunRepository;
+        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
     }
 
     @ExceptionHandler(NotFoundException.class)
     @Transactional(readOnly = true)
-    public ResponseEntity<String> handleNotFound(NotFoundException ex, HttpServletRequest req) {
+    public ResponseEntity<ErrorResponse> handleNotFound(NotFoundException ex, HttpServletRequest req) {
         String path = req.getRequestURI();
 
-        Matcher m2 = EXPERIMENT_ID_AND_PART_ID.matcher(path);
-        if (m2.matches()) {
-            long id = Long.parseLong(m2.group(1));
-            long partId = Long.parseLong(m2.group(2));
-
-            return translateExperimentAndPart(path, id, partId);
+        Matcher fullMatcher = FULL_PATH_PATTERN.matcher(path);
+        if (fullMatcher.matches()) {
+            long expId = Long.parseLong(fullMatcher.group(1));
+            long runNo = Long.parseLong(fullMatcher.group(2));
+            long partId = Long.parseLong(fullMatcher.group(3));
+            return translateDetailedNotFound(expId, runNo, partId);
         }
 
-        Matcher m1 = EXPERIMENT_ID.matcher(path);
-        if (m1.matches()) {
-            long id = Long.parseLong(m1.group(1));
-
-            if (DELETE_EXPERIMENT.matcher(path).matches()
-                    && "DELETE".equalsIgnoreCase(req.getMethod())) {
+        Matcher expMatcher = EXPERIMENT_PATH_PATTERN.matcher(path);
+        if (expMatcher.matches()) {
+            long expId = Long.parseLong(expMatcher.group(1));
+            if (!experimentRepository.existsById(expId)) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Experiment with id " + id + " doesnt exist");
+                        .body(new ErrorResponse("Experiment with id " + expId + " does not exist"));
             }
-
-            if (!experimentRepository.existsById(id)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Experiment with id " + id + " doesnt exist");
-            }
-
-
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
         }
 
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(ex.getMessage()));
     }
 
-    private ResponseEntity<String> translateExperimentAndPart(String path, long id, long partId) {
-        Optional<Experiment> expOpt = experimentRepository.findWithPartsById(id);
-        boolean expExists = expOpt.isPresent();
-        List<Long> availableParts = expOpt
-                .map(this::extractPartIdsSorted)
-                .orElse(List.of());
+    private ResponseEntity<ErrorResponse> translateDetailedNotFound(long expId, long runNo, long partId) {
+        boolean expExists = experimentRepository.existsById(expId);
+        RunId runId = new RunId(expId, runNo);
+        boolean runExists = experimentRunRepository.existsById(runId);
+        Optional<ExperimentPartExecution> partOpt = experimentPartExecutionRepository.findById(partId);
 
-        Optional<Long> belongsTo = experimentPartRepository.findById(partId)
-                .map(ExperimentPart::getExperiment)
-                .map(Experiment::getId);
-
-        if (expExists && belongsTo.isPresent()) {
-            long x = belongsTo.get();
-            if (x == id) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Unexpected: part exists and belongs to experiment");
-            }
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Experiment part with id " + partId + " doesnt belong to experiment with id " + id
-                            + ", experiment parts available for experiment " + id + ": " + availableParts);
-        }
-
-        if (expExists && belongsTo.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Experiment part with id " + partId + " doesnt exist, experiment parts available for experiment "
-                            + id + ": " + availableParts);
-        }
-
-        if (!expExists && belongsTo.isPresent()) {
-            long x = belongsTo.get();
+        if (!expExists) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Experiment with id " + id + " doesnt exist, experiment part with id " + partId
-                            + " belongs to experiment with id " + x);
+                    .body(new ErrorResponse("Experiment " + expId + " does not exist"));
+        }
+
+        if (!runExists) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("Experiment " + expId + " exists, but Run " + runNo + " does not"));
+        }
+
+        if (partOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("Experiment part " + partId + " does not exist"));
+        }
+
+        ExperimentPartExecution part = partOpt.get();
+        RunId actualRunId = part.getExperimentRun().getId();
+
+        if (!actualRunId.equals(runId)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ErrorResponse(String.format("Part %d belongs to Experiment %d Run %d, not requested path",
+                            partId, actualRunId.getExperimentId(), actualRunId.getRunNo())));
         }
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Experiment and experiment part dont exist");
-    }
-
-    private List<Long> extractPartIdsSorted(Experiment exp) {
-        if (exp.getParts() == null) return List.of();
-        return exp.getParts().stream()
-                .map(ExperimentPart::getId)
-                .filter(x -> x != null)
-                .sorted(Comparator.naturalOrder())
-                .toList();
+                .body(new ErrorResponse("Requested resource for Part " + partId + " was not found"));
     }
 }

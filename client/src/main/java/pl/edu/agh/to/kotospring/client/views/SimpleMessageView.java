@@ -1,39 +1,37 @@
 package pl.edu.agh.to.kotospring.client.views;
 
-import org.springframework.shell.component.view.control.GridView;
-import pl.edu.agh.to.kotospring.client.models.ExperimentOption;
-import pl.edu.agh.to.kotospring.client.views.cells.SimpleTextCell;
+import org.springframework.shell.component.view.control.BoxView;
+import org.springframework.shell.component.view.screen.Screen;
+import org.springframework.shell.geom.Rectangle;
 
-import java.util.ArrayList;
-import java.util.List;
+public class SimpleMessageView extends BoxView {
 
-public class SimpleMessageView extends GridView {
-
-    private final ResizingListView<ExperimentOption> contentList;
+    private final String message;
 
     public SimpleMessageView(String title, String message) {
         setTitle(title);
         setShowBorder(true);
-        setRowSize(0, 10);
-        setColumnSize(0);
-
-        contentList = new ResizingListView<>();
-        contentList.setShowBorder(false);
-        contentList.setRowHeight(1);
-        contentList.setCellFactory((list, item) -> new SimpleTextCell(item));
-
-        List<ExperimentOption> items = new ArrayList<>();
-        items.add(new ExperimentOption(" ", () -> {}));
-        items.add(new ExperimentOption(" " + message, () -> {}));
-        items.add(new ExperimentOption(" ", () -> {}));
-
-
-        contentList.setItems(items);
-        addItem(contentList, 0, 0, 1, 1, 0, 0);
+        this.message = message;
     }
 
-    public ResizingListView<ExperimentOption> getContentList() {
-        return contentList;
-    }
+    @Override
+    protected void drawInternal(Screen screen) {
+        super.drawInternal(screen);
+        Rectangle rect = getInnerRect();
+        if (message != null && !message.isEmpty() && rect.width() > 0 && rect.height() > 0) {
+            String[] lines = message.split("\n");
+            int totalHeight = lines.length;
+            int startY = rect.y() + (rect.height() - totalHeight) / 2;
 
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                int startX = rect.x() + (rect.width() - line.length()) / 2;
+                if (startY + i >= rect.y() && startY + i < rect.y() + rect.height()) {
+                    screen.writerBuilder()
+                            .build()
+                            .text(line, Math.max(rect.x(), startX), startY + i);
+                }
+            }
+        }
+    }
 }
