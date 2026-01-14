@@ -287,6 +287,12 @@ public class ExperimentServiceImpl implements ExperimentService {
         logger.debug("Attempting to delete experiment ID {}", id);
 
         return experimentRepository.findById(id).map(experiment -> {
+            experiment.getRuns().clear();
+            experimentRepository.saveAndFlush(experiment);
+
+            experiment.getParts().clear();
+            experimentRepository.saveAndFlush(experiment);
+
             experimentRepository.delete(experiment);
             logger.info("Experiment ID {} deleted successfully", id);
             return true;
@@ -300,36 +306,35 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional
     public boolean deleteExperimentRun(long id, long runNo) {
         logger.debug("Attempting to delete experiment ID {} run {}", id, runNo);
-
         return experimentRepository.findWithRunsById(id).map(experiment -> {
-            Optional<ExperimentRun> runToDeleteOpt = experiment.getRuns().stream()
+            Optional<ExperimentRun> runToDelete = experiment.getRuns().stream()
                     .filter(r -> r.getRunNo().equals(runNo))
                     .findFirst();
 
-            if (runToDeleteOpt.isEmpty()) {
-                logger.info("Failed to delete experiment ID {} run {}: Run not found", id, runNo);
-                return false;
+            if (runToDelete.isPresent()) {
+                experiment.removeRun(runToDelete.get());
+                if (experiment.getRuns().isEmpty()) {
+                    logger.info("Deleting experiment ID {} because last run was removed", id);
+                    experiment.getRuns().clear();
+                    experimentRepository.saveAndFlush(experiment);
+
+                    experiment.getParts().clear();
+                    experimentRepository.saveAndFlush(experiment);
+
+                    experimentRepository.delete(experiment);
+                } else {
+                    experimentRepository.saveAndFlush(experiment);
+                    logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
+                }
+                return true;
             }
 
-            ExperimentRun runToDelete = runToDeleteOpt.get();
-
-            experiment.removeRun(runToDelete);
-
-            if (experiment.getRuns().isEmpty()) {
-                logger.info("Deleting experiment ID {} because last run was removed", id);
-                experimentRepository.delete(experiment);
-            } else {
-                experimentRepository.save(experiment);
-                logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
-            }
-
-            return true;
+            return false;
         }).orElseGet(() -> {
             logger.info("Failed to delete experiment ID {} run {}: Experiment not found", id, runNo);
             return false;
         });
     }
-
 
     @Override
     @Transactional(readOnly = true)
