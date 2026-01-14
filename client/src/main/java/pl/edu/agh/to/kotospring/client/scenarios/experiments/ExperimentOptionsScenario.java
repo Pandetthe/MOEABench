@@ -6,6 +6,7 @@ import org.springframework.shell.component.view.control.View;
 import org.springframework.shell.geom.HorizontalAlign;
 import pl.edu.agh.to.kotospring.client.models.MenuOption;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioBindings;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
@@ -49,14 +50,9 @@ public class ExperimentOptionsScenario extends Scenario {
                 new MenuOption("Show Runs", this::openRuns),
                 new MenuOption("Show Aggregations", this::openAggregations)));
 
-        getEventloop().onDestroy(
-                getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, options)
-                        .subscribe(event -> {
-                            Object item = event.args().item();
-                            if (item instanceof MenuOption option) {
-                                option.action().run();
-                            }
-                        }));
+        ScenarioBindings bindings = new ScenarioBindings(getEventloop());
+        bindings.onOpenSelectedItem(options, MenuOption.class, option -> option.action().run());
+
 
         return options;
     }

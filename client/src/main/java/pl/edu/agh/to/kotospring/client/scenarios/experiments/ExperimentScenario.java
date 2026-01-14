@@ -6,6 +6,7 @@ import org.springframework.shell.geom.HorizontalAlign;
 import org.springframework.util.StringUtils;
 import pl.edu.agh.to.kotospring.client.models.ScenarioData;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioBindings;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
 import pl.edu.agh.to.kotospring.client.views.*;
@@ -46,16 +47,13 @@ public class ExperimentScenario extends Scenario {
         scenarios.setCenterVertically(true);
         scenarios.setCellFactory((list, item) -> new UniversalButtonCell<>(item, ScenarioData::name));
         scenarios.setItems(scenarioList);
-        getEventloop().onDestroy(
-                getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, scenarios)
-                        .subscribe(event -> {
-                            Object item = event.args().item();
-                            if (item instanceof ScenarioData scenarioData) {
-                                Scenario scenario = scenarioData.scenario();
-                                wireChild(scenario);
-                                navigate(scenario.buildContext());
-                            }
-                        }));
+        ScenarioBindings bindings = new ScenarioBindings(getEventloop());
+        bindings.onOpenSelectedItem(scenarios, ScenarioData.class, scenarioData -> {
+            Scenario scenario = scenarioData.scenario();
+            wireChild(scenario);
+            navigate(scenario.buildContext());
+        });
+
         return scenarios;
     }
 }

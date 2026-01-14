@@ -7,10 +7,7 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.models.MenuOption;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.*;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
@@ -98,22 +95,11 @@ public class GetExperimentRunScenario extends Scenario {
             tableView.setAutoRunOnOpen(false);
             configure(tableView);
 
-            getEventloop().onDestroy(
-                    getEventloop().keyEvents()
-                            .subscribe(event -> {
-                                if (tableView.hasFocus() && event.getPlainKey() == 'f' && event.hasCtrl()) {
-                                    openFilterForm();
-                                }
-                            }));
+            ScenarioBindings bindings = new ScenarioBindings(getEventloop());
 
-            getEventloop().onDestroy(
-                    getEventloop().viewEvents(ResizingListView.ResizingListViewOpenSelectedItemEvent.class, tableView)
-                            .subscribe(event -> {
-                                Object item = event.args().item();
-                                if (item instanceof MenuOption option) {
-                                    handleRowSelection(option);
-                                }
-                            }));
+            bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
+            bindings.onOpenSelectedItem(tableView, MenuOption.class, this::handleRowSelection);
+
 
             return tableView;
 

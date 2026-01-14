@@ -4,10 +4,7 @@ import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioContext;
-import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.*;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
@@ -72,13 +69,9 @@ public class GetExperimentRunsScenario extends Scenario {
 
             configure(tableView);
 
-            getEventloop().onDestroy(
-                    getEventloop().keyEvents()
-                            .subscribe(event -> {
-                                if (tableView.hasFocus() && event.getPlainKey() == 'f' && event.hasCtrl()) {
-                                    openFilterForm();
-                                }
-                            }));
+            ScenarioBindings bindings = new ScenarioBindings(getEventloop());
+            bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
+
 
             return tableView;
 
