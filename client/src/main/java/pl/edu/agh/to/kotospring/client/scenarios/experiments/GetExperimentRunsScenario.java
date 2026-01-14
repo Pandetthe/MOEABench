@@ -35,6 +35,11 @@ public class GetExperimentRunsScenario extends Scenario {
     }
 
     @Override
+    protected void onStart() {
+        setStatusBar(List.of("CTRL-F Search"));
+    }
+
+    @Override
     public View build() {
         try {
             GetExperimentRunsResponse response = experimentClient.getExperimentRuns(
