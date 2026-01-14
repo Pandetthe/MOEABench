@@ -66,32 +66,45 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
     }
 
     private void recalculateAndRefresh(int totalWidth) {
-        if (allHeaders.isEmpty() && allData.isEmpty())
+        int numCols = getTotalColumnCount();
+        if (numCols == 0) {
             return;
-
-        int numCols = allHeaders.size();
-        if (numCols == 0 && !allData.isEmpty()) {
-            numCols = allData.get(0).size();
         }
-        if (numCols == 0)
-            return;
-
         int maxTableWidth = Math.max(MIN_TABLE_WIDTH, totalWidth - 2);
-
-        int visibleCount = pagingEnabled ? (frozenColumns + pageColumns) : numCols;
-        visibleCount = Math.min(visibleCount, numCols);
-
         if (pagingEnabled) {
-            int scrollable = Math.max(0, numCols - frozenColumns);
-            int maxOffset = Math.max(0, scrollable - pageColumns);
-            colOffset = Math.min(colOffset, maxOffset);
+            validateScrollOffset(numCols);
+        }
+        List<Integer> visibleIdx = determineVisibleColumnIndices(numCols);
+        if (pagingEnabled) {
+            visibleIdx = adjustPageSizeToFitScreen(visibleIdx, maxTableWidth, numCols);
+        }
+        this.currentColWidths = calculateScaledColumnWidths(visibleIdx, maxTableWidth, numCols);
+        refreshItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+    }
+
+    private int getTotalColumnCount() {
+        if (!allHeaders.isEmpty()) {
+            return allHeaders.size();
+        }
+        if (!allData.isEmpty()) {
+            return allData.getFirst().size();
+        }
+        return 0;
+    }
+
+    private void validateScrollOffset(int numCols) {
+        int scrollable = Math.max(0, numCols - frozenColumns);
+        int maxOffset = Math.max(0, scrollable - pageColumns);
+        colOffset = Math.min(colOffset, maxOffset);
+    }
+
+    private List<Integer> determineVisibleColumnIndices(int numCols) {
+        List<Integer> visibleIdx = new ArrayList<>();
+        int frozenLimit = pagingEnabled ? frozenColumns : numCols;
+        for (int i = 0; i < frozenLimit; i++) {
+            if (i < numCols) visibleIdx.add(i);
         }
 
-        List<Integer> visibleIdx = new ArrayList<>();
-        for (int i = 0; i < (pagingEnabled ? frozenColumns : numCols); i++) {
-            if (i < numCols)
-                visibleIdx.add(i);
-        }
         if (pagingEnabled) {
             int start = frozenColumns + colOffset;
             int end = Math.min(start + pageColumns, numCols);
@@ -99,57 +112,59 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
                 visibleIdx.add(i);
             }
         }
+        return visibleIdx;
+    }
 
-        int currentVisibleCount = visibleIdx.size();
+    private List<Integer> adjustPageSizeToFitScreen(List<Integer> currentVisibleIdx, int maxTableWidth, int numCols) {
+        int currentVisibleCount = currentVisibleIdx.size();
         int separatorSpace = (currentVisibleCount - 1) * 3;
         int availableSpace = maxTableWidth - separatorSpace;
 
-        if (pagingEnabled && currentVisibleCount * 5 > availableSpace) {
+        if (currentVisibleCount * 5 > availableSpace) {
             while (currentVisibleCount > frozenColumns + 1
                     && (currentVisibleCount * 5 + (currentVisibleCount - 1) * 3) > maxTableWidth) {
                 currentVisibleCount--;
             }
             this.pageColumns = Math.max(1, currentVisibleCount - frozenColumns);
 
-            visibleIdx.clear();
-            for (int i = 0; i < frozenColumns; i++)
-                visibleIdx.add(i);
-            int start = frozenColumns + colOffset;
-            int end = Math.min(start + pageColumns, numCols);
-            for (int i = start; i < end; i++)
-                visibleIdx.add(i);
-
-            currentVisibleCount = visibleIdx.size();
-            separatorSpace = (currentVisibleCount - 1) * 3;
-            availableSpace = maxTableWidth - separatorSpace;
+            return determineVisibleColumnIndices(numCols);
         }
 
-        availableSpace = Math.max(currentVisibleCount * 2, availableSpace);
+        return currentVisibleIdx;
+    }
 
+    private List<Integer> calculateScaledColumnWidths(List<Integer> visibleIdx, int maxTableWidth, int numCols) {
+        int currentVisibleCount = visibleIdx.size();
+        if (currentVisibleCount == 0) return new ArrayList<>(Collections.nCopies(numCols, 20));
+
+        int separatorSpace = (currentVisibleCount - 1) * 3;
+        int availableSpace = maxTableWidth - separatorSpace;
+        availableSpace = Math.max(currentVisibleCount * 2, availableSpace);
         int totalOriginalVisibleWidth = 0;
+
         for (int idx : visibleIdx) {
             totalOriginalVisibleWidth += originalColWidths.get(idx);
         }
 
-        double scaleFactor = (double) availableSpace / totalOriginalVisibleWidth;
-
+        double scaleFactor = (totalOriginalVisibleWidth > 0)
+                ? (double) availableSpace / totalOriginalVisibleWidth
+                : 1.0;
         List<Integer> newWidths = new ArrayList<>(Collections.nCopies(numCols, 20));
         int allocated = 0;
-        for (int idx : visibleIdx) {
-            int w = (int) Math.round(originalColWidths.get(idx) * scaleFactor);
-            w = Math.max(5, w);
-            allocated += w;
-            newWidths.set(idx, w);
-        }
 
-        if (allocated != availableSpace && !visibleIdx.isEmpty()) {
-            int lastIdx = visibleIdx.get(visibleIdx.size() - 1);
+        for (int idx : visibleIdx) {
+            int width = (int) Math.round(originalColWidths.get(idx) * scaleFactor);
+            width = Math.max(5, width);
+            allocated += width;
+            newWidths.set(idx, width);
+        }
+        if (allocated != availableSpace) {
+            int lastIdx = visibleIdx.getLast();
             int adjusted = newWidths.get(lastIdx) + (availableSpace - allocated);
             newWidths.set(lastIdx, Math.max(5, adjusted));
         }
 
-        this.currentColWidths = newWidths;
-        refreshItems(pagingEnabled ? buildRowsWithPaging() : buildRowsNoPaging());
+        return newWidths;
     }
 
     public void setShowFullNumericCells(boolean enabled) {
@@ -164,6 +179,7 @@ public class SimpleTableView extends ResizingListView<MenuOption> {
         this.colOffset = 0;
         refreshItems(buildRowsWithPaging());
     }
+
 
     public void setIndicatorsFullOnLastPage(boolean enabled) {
         this.indicatorsFullOnLastPage = enabled;
