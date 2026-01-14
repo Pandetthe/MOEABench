@@ -3,6 +3,7 @@ package pl.edu.agh.to.kotospring.server.entities;
 import jakarta.persistence.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
+import java.util.Optional;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -77,20 +78,23 @@ public class ExperimentPartExecution {
         this.experimentPart = experimentPart;
     }
 
-    public String getProblem() {
-        return experimentPart != null ? experimentPart.getProblem() : null;
+    public Optional<String> getProblem() {
+        return Optional.ofNullable(experimentPart).map(ExperimentPart::getProblem);
     }
 
-    public String getAlgorithm() {
-        return experimentPart != null ? experimentPart.getAlgorithm() : null;
+    public Optional<String> getAlgorithm() {
+        return Optional.ofNullable(experimentPart).map(ExperimentPart::getAlgorithm);
     }
 
-    public int getBudget() {
-        return experimentPart != null ? experimentPart.getBudget() : 0;
+    public OptionalInt getBudget() {
+        return Optional.ofNullable(experimentPart)
+                .map(ExperimentPart::getBudget)
+                .map(OptionalInt::of)
+                .orElseGet(OptionalInt::empty);
     }
 
-    public Set<ExperimentPartAlgorithmParameter> getParameters() {
-        return experimentPart != null ? experimentPart.getParameters() : Collections.emptySet();
+    public Optional<Set<ExperimentPartAlgorithmParameter>> getParameters() {
+        return Optional.ofNullable(experimentPart).map(ExperimentPart::getParameters);
     }
 
     public Set<ExperimentPartIndicator> getIndicators() {
