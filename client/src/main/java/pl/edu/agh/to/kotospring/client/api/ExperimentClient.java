@@ -36,7 +36,9 @@ public interface ExperimentClient {
                         @RequestParam(required = false) String indicator,
                         @RequestParam(required = false) ExperimentRunStatus status,
                         @RequestParam(required = false) OffsetDateTime startTime,
-                        @RequestParam(required = false) OffsetDateTime endTime);
+                        @RequestParam(required = false) OffsetDateTime endTime,
+                        @RequestParam int page,
+                        @RequestParam int size);
 
         @GetExchange("/experiments/{id}/runs/{runNo}")
         GetExperimentRunResponse getExperimentRun(

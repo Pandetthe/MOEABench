@@ -1,5 +1,7 @@
 package pl.edu.agh.to.kotospring.server.services.interfaces;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentRun;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
@@ -21,8 +23,9 @@ public interface ExperimentService {
 
         Optional<Experiment> getExperiment(long id, ExperimentRunStatus status);
 
-        List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                          ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end);
+        Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+                                              ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+                                              Pageable pageable);
 
         Optional<ExperimentRun> getExperimentRun(
                         long id, long runNo, String algorithm, String problem,

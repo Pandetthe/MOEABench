@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.server.mappers;
 
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
@@ -55,23 +56,28 @@ public class ExperimentMapper {
                                 run.getFinishedAt());
         }
 
-    public GetExperimentRunsResponse mapToGetExperimentRunsResponse(List<ExperimentRun> runs) {
-        return runs.stream()
-                .map(this::mapToGetExperimentRunsResponseData)
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toList(),
-                        GetExperimentRunsResponse::new));
-    }
+        public GetExperimentRunsResponse mapToGetExperimentRunsResponse(Page<ExperimentRun> runs) {
+                List<GetExperimentRunsResponseData> content = runs.getContent().stream()
+                                .map(this::mapToGetExperimentRunsResponseData)
+                                .toList();
 
-    private GetExperimentRunsResponseData mapToGetExperimentRunsResponseData(ExperimentRun run) {
-        return new GetExperimentRunsResponseData(
-                run.getExperimentId(),
-                run.getRunNo(),
-                run.getStatus(),
-                run.getStartedAt(),
-                run.getFinishedAt()
-        );
-    }
+                PageMetadata metadata = new PageMetadata(
+                                runs.getSize(),
+                                runs.getTotalElements(),
+                                runs.getTotalPages(),
+                                runs.getNumber());
+
+                return new GetExperimentRunsResponse(content, metadata);
+        }
+
+        private GetExperimentRunsResponseData mapToGetExperimentRunsResponseData(ExperimentRun run) {
+                return new GetExperimentRunsResponseData(
+                                run.getExperimentId(),
+                                run.getRunNo(),
+                                run.getStatus(),
+                                run.getStartedAt(),
+                                run.getFinishedAt());
+        }
 
         public GetExperimentRunResponse mapToGetExperimentRunResponse(ExperimentRun run) {
                 List<GetExperimentRunResponseData> mappedParts = run.getParts().stream()

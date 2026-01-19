@@ -1,5 +1,8 @@
 package pl.edu.agh.to.kotospring.server.controllers;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
@@ -62,15 +65,18 @@ public final class ExperimentController {
     }
 
     @GetMapping("runs")
-    public ResponseEntity<?> getExperimentRuns(
+    public ResponseEntity<GetExperimentRunsResponse> getExperimentRuns(
             @RequestParam(required = false) String algorithm,
             @RequestParam(required = false) String problem,
             @RequestParam(required = false) String indicator,
             @RequestParam(required = false) ExperimentRunStatus status,
             @RequestParam(required = false) OffsetDateTime startTime,
-            @RequestParam(required = false) OffsetDateTime endTime
-    ) {
-        var runs = experimentService.getExperimentRuns(algorithm, problem, indicator, status, startTime, endTime);
+            @RequestParam(required = false) OffsetDateTime endTime,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id.runNo"));
+        var runs = experimentService.getExperimentRuns(algorithm, problem, indicator, status, startTime, endTime,
+                pageable);
         return ResponseEntity.ok(experimentMapper.mapToGetExperimentRunsResponse(runs));
     }
 

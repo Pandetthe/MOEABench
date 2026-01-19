@@ -1,5 +1,6 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
+import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentRunsResponse;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -9,7 +10,6 @@ import pl.edu.agh.to.kotospring.client.views.InputForm;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentRunsResponse;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentRunsResponseData;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -30,26 +30,34 @@ public class GetExperimentRunsScenario extends Scenario {
     private OffsetDateTime currentStartTime = null;
     private OffsetDateTime currentEndTime = null;
 
+    private int currentPage = 0;
+    private final int pageSize = 20;
+    private int totalPages = 1;
+
     public GetExperimentRunsScenario(ExperimentClient experimentClient) {
         this.experimentClient = experimentClient;
     }
 
     @Override
     protected void onStart() {
-        setStatusBar(List.of("CTRL-F Search"));
+        setStatusBar(List.of("CTRL-F Search", "[ Prev Page", "] Next Page"));
     }
 
     @Override
     public View build() {
         try {
-            GetExperimentRunsResponse response = experimentClient.getExperimentRuns(
+            GetExperimentRunsResponse page = experimentClient.getExperimentRuns(
                     currentAlgorithm,
                     currentProblem,
                     currentIndicator,
                     currentStatus,
                     currentStartTime,
-                    currentEndTime
-            );
+                    currentEndTime,
+                    currentPage,
+                    pageSize);
+
+            var metadata = page.metadata();
+            this.totalPages = (int) metadata.totalPages();
 
             List<String> headers = List.of("Experiment ID", "Run ID", "Status", "Started", "Finished");
             List<Integer> widths = List.of(15, 10, 16, 27, 27);
@@ -59,7 +67,7 @@ public class GetExperimentRunsScenario extends Scenario {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss dd.MM.yyyy")
                     .withZone(ZoneId.systemDefault());
 
-            for (GetExperimentRunsResponseData exp : response) {
+            for (GetExperimentRunsResponseData exp : page.content()) {
                 List<String> row = new ArrayList<>();
                 row.add(String.valueOf(exp.experimentId()));
                 row.add(String.valueOf(exp.runNo()));
@@ -70,6 +78,7 @@ public class GetExperimentRunsScenario extends Scenario {
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
+            tableView.setTitle(String.format("Runs (Page %d/%d)", currentPage + 1, Math.max(1, totalPages)));
             tableView.setAutoRunOnOpen(false);
 
             configure(tableView);
@@ -77,6 +86,18 @@ public class GetExperimentRunsScenario extends Scenario {
             ScenarioBindings bindings = new ScenarioBindings(getEventloop());
             bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
 
+            // Row paging bindings
+            getEventloop().onDestroy(
+                    getEventloop().keyEvents()
+                            .subscribe(event -> {
+                                if (tableView.hasFocus()) {
+                                    if (event.getPlainKey() == '[') {
+                                        prevPage();
+                                    } else if (event.getPlainKey() == ']') {
+                                        nextPage();
+                                    }
+                                }
+                            }));
 
             return tableView;
 
@@ -90,7 +111,7 @@ public class GetExperimentRunsScenario extends Scenario {
         } catch (Exception e) {
             return new SimpleMessageView("Unexpected Error", e.getMessage() == null ? e.toString() : e.getMessage());
         }
-        }
+    }
 
     private void openFilterForm() {
         InputForm form = new InputForm(getTerminalUI(), "Filter Experiments");
@@ -136,6 +157,7 @@ public class GetExperimentRunsScenario extends Scenario {
                 this.currentEndTime = null;
             }
 
+            this.currentPage = 0;
             View filteredTableView = build();
             navigate(createContext(filteredTableView, () -> {
                 if (filteredTableView instanceof SimpleTableView tv) {
@@ -158,10 +180,34 @@ public class GetExperimentRunsScenario extends Scenario {
         this.currentStatus = null;
         this.currentStartTime = null;
         this.currentEndTime = null;
+        this.currentPage = 0;
+    }
+
+    private void nextPage() {
+        if (currentPage < totalPages - 1) {
+            currentPage++;
+            refresh();
+        }
+    }
+
+    private void prevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            refresh();
+        }
+    }
+
+    private void refresh() {
+        View view = build();
+        replace(createContext(view, () -> {
+            if (view instanceof SimpleTableView tv) {
+                getTerminalUI().setFocus(tv);
+            }
+        }));
     }
 
     @Override
     public ScenarioContext buildContext() {
         return createContext(build(), null, this::resetFilters);
     }
-    }
+}

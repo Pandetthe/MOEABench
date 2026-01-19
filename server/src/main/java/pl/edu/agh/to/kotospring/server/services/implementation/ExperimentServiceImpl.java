@@ -7,6 +7,8 @@ import org.moeaframework.core.population.NondominatedPopulation;
 import org.moeaframework.problem.Problem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -205,9 +207,10 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                                 ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end) {
-        return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end);
+    public Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+                                                 ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+                                                 Pageable pageable) {
+        return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end, pageable);
     }
 
     @Override
