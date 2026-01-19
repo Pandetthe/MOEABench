@@ -1,6 +1,7 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Scope;
 import org.springframework.shell.component.view.control.View;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
@@ -33,6 +34,9 @@ public class GetExperimentPartScenario extends Scenario {
     private long experimentId;
     private long runId;
     private long partId;
+
+    @Value("${plots.download.dir:plots}")
+    private String plotsDownloadDir;
 
     private final ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider;
 
@@ -142,7 +146,7 @@ public class GetExperimentPartScenario extends Scenario {
 
             byte[] imageBytes = plotOptional.get();
 
-            File dir = new File("plots");
+            File dir = new File(plotsDownloadDir);
             if (!dir.exists()) {
                 dir.mkdirs();
             }
