@@ -195,6 +195,16 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
+    @GetMapping(value = "{id}/runs/{runNo}/parts/{partId}/csv", produces = "text/csv")
+    public ResponseEntity<String> getExperimentPartCsv(
+            @PathVariable long id,
+            @PathVariable long runNo,
+            @PathVariable long partId) {
+        return experimentService.getExperimentPartCsv(id, runNo, partId)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment part not found"));
+    }
+
     @DeleteMapping("{id}")
     public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
         if (experimentService.deleteExperiment(id))

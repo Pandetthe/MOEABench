@@ -98,7 +98,7 @@ public class GetExperimentPartScenario extends Scenario {
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
             tableView.setEnableWrapping(false);
             configure(tableView);
-            grid.addItem(tableView, 0, 0, 1, 2, 0, 0);
+            grid.addItem(tableView, 0, 0, 1, 3, 0, 0);
 
             CenteredButtonView resultsButton = new CenteredButtonView();
             resultsButton.setText("View Results");
@@ -111,6 +111,12 @@ public class GetExperimentPartScenario extends Scenario {
             downloadPlotButton.setAction(this::downloadPlot);
             configure(downloadPlotButton);
             grid.addItem(downloadPlotButton, 1, 1, 1, 1, 0, 0);
+
+            CenteredButtonView downloadCsvButton = new CenteredButtonView();
+            downloadCsvButton.setText("Download CSV");
+            downloadCsvButton.setAction(this::downloadCsv);
+            configure(downloadCsvButton);
+            grid.addItem(downloadCsvButton, 1, 2, 1, 1, 0, 0);
 
             return grid;
 
@@ -166,6 +172,38 @@ public class GetExperimentPartScenario extends Scenario {
                     "The server reported that no plot exists for this experiment part."));
         } catch (Exception e) {
             navigate(new SimpleMessageView("Download Error", "Failed to retrieve or save the plot: " + e.getMessage()));
+        }
+    }
+
+    private void downloadCsv() {
+        try {
+            String csvData = client.getExperimentPartCsv(experimentId, runId, partId);
+            if (csvData == null || csvData.isEmpty()) {
+                navigate(new SimpleMessageView("No Data",
+                        "No results found for this experiment part to export."));
+                return;
+            }
+
+            File dir = new File(plotsDownloadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            String fileName = String.format("results_exp%d_run%d_part%d.csv", experimentId, runId, partId);
+            File file = new File(dir, fileName);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(csvData.getBytes());
+            }
+
+            openFile(file);
+            navigate(new SimpleMessageView("CSV Downloaded", "Results saved to: " + file.getAbsolutePath()
+                    + "\nAttempting to open with system default viewer..."));
+
+        } catch (WebClientResponseException.NotFound e) {
+            navigate(new SimpleMessageView("No Data",
+                    "The server reported that no results exist for this experiment part."));
+        } catch (Exception e) {
+            navigate(new SimpleMessageView("Download Error", "Failed to retrieve or save CSV: " + e.getMessage()));
         }
     }
 

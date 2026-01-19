@@ -84,6 +84,12 @@ public interface ExperimentClient {
                         @PathVariable("runNo") long runNo,
                         @PathVariable("partId") long partId);
 
+        @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/csv")
+        String getExperimentPartCsv(
+                        @PathVariable("id") long id,
+                        @PathVariable("runNo") long runNo,
+                        @PathVariable("partId") long partId);
+
         @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/plot")
         Optional<byte[]> getExperimentPartPlot(
                         @PathVariable("id") long id,

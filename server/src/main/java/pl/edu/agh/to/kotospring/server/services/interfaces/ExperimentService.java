@@ -24,8 +24,8 @@ public interface ExperimentService {
         Optional<Experiment> getExperiment(long id, ExperimentRunStatus status);
 
         Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                              ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
-                                              Pageable pageable);
+                        ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+                        Pageable pageable);
 
         Optional<ExperimentRun> getExperimentRun(
                         long id, long runNo, String algorithm, String problem,
@@ -50,4 +50,6 @@ public interface ExperimentService {
         boolean deleteExperimentRun(long id, long runNo);
 
         GetExperimentAggregateResponse getExperimentAggregate(long experimentId);
+
+        Optional<String> getExperimentPartCsv(long id, long runNo, long partId);
 }

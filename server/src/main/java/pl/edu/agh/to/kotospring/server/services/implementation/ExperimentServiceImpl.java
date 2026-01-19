@@ -1,6 +1,5 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.population.NondominatedPopulation;
@@ -400,5 +399,50 @@ public class ExperimentServiceImpl implements ExperimentService {
         }
 
         return new GetExperimentAggregateResponse(aggregateDataList);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> getExperimentPartCsv(long id, long runNo, long partId) {
+        return getExperimentPartResult(id, runNo, partId).map(part -> {
+            Set<ExperimentPartSolution> solutions = part.getSolutions();
+            if (solutions.isEmpty()) {
+                return "";
+            }
+
+            TreeSet<String> varKeys = new TreeSet<>();
+            TreeSet<String> objKeys = new TreeSet<>();
+            TreeSet<String> constKeys = new TreeSet<>();
+
+            for (ExperimentPartSolution solution : solutions) {
+                varKeys.addAll(solution.getVariables().keySet());
+                objKeys.addAll(solution.getObjectives().keySet());
+                constKeys.addAll(solution.getConstraints().keySet());
+            }
+
+            StringBuilder csv = new StringBuilder();
+
+            List<String> header = new ArrayList<>();
+            for (String k : varKeys)
+                header.add("Var:" + k);
+            for (String k : objKeys)
+                header.add("Obj:" + k);
+            for (String k : constKeys)
+                header.add("Const:" + k);
+            csv.append(String.join(",", header)).append("\n");
+
+            for (ExperimentPartSolution solution : solutions) {
+                List<String> row = new ArrayList<>();
+                for (String k : varKeys)
+                    row.add(solution.getVariables().getOrDefault(k, ""));
+                for (String k : objKeys)
+                    row.add(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0)));
+                for (String k : constKeys)
+                    row.add(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0)));
+                csv.append(String.join(",", row)).append("\n");
+            }
+
+            return csv.toString();
+        });
     }
 }
