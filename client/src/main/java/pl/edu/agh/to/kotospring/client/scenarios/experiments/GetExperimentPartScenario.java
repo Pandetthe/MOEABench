@@ -15,10 +15,14 @@ import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartResponse;
 
+import java.awt.Desktop;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @ScenarioComponent(name = "Get experiment part", type = ScenarioType.OTHER)
@@ -51,6 +55,11 @@ public class GetExperimentPartScenario extends Scenario {
     }
 
     @Override
+    protected void onStart() {
+        setStatusBar(List.of("TAB Change selection"));
+    }
+
+    @Override
     public View build() {
         try {
             GetExperimentPartResponse response = client.getExperimentPart(experimentId, runId, partId);
@@ -60,8 +69,8 @@ public class GetExperimentPartScenario extends Scenario {
             grid.setTitle("Details for Experiment ID: " + experimentId + ", Run No: " + runId + ", Part ID: " + partId);
             grid.setShowBorders(true);
 
-            grid.setRowSize(0, 0);
-            grid.setRowSize(1, 1);
+            grid.setRowSize(0, 5);
+            grid.setColumnSize(0, 0);
 
             List<String> headers = List.of("Property", "Value");
             List<Integer> widths = List.of(20, 60);
@@ -85,13 +94,19 @@ public class GetExperimentPartScenario extends Scenario {
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
             tableView.setEnableWrapping(false);
             configure(tableView);
-            grid.addItem(tableView, 0, 0, 1, 1, 0, 0);
+            grid.addItem(tableView, 0, 0, 1, 2, 0, 0);
 
             CenteredButtonView resultsButton = new CenteredButtonView();
             resultsButton.setText("View Results");
             resultsButton.setAction(this::openResults);
             configure(resultsButton);
             grid.addItem(resultsButton, 1, 0, 1, 1, 0, 0);
+
+            CenteredButtonView downloadPlotButton = new CenteredButtonView();
+            downloadPlotButton.setText("Download Plot");
+            downloadPlotButton.setAction(this::downloadPlot);
+            configure(downloadPlotButton);
+            grid.addItem(downloadPlotButton, 1, 1, 1, 1, 0, 0);
 
             return grid;
 
@@ -116,4 +131,57 @@ public class GetExperimentPartScenario extends Scenario {
         navigate(partResultScenario.buildContext());
     }
 
+    private void downloadPlot() {
+        try {
+            Optional<byte[]> plotOptional = client.getExperimentPartPlot(experimentId, runId, partId);
+            if (plotOptional.isEmpty()) {
+                navigate(new SimpleMessageView("No Plot",
+                        "No plot image has been generated for this experiment part yet."));
+                return;
+            }
+
+            byte[] imageBytes = plotOptional.get();
+
+            File dir = new File("plots");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            String fileName = String.format("plot_exp%d_run%d_part%d.png", experimentId, runId, partId);
+            File file = new File(dir, fileName);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(imageBytes);
+            }
+
+            openFile(file);
+            navigate(new SimpleMessageView("Plot Downloaded", "Plot saved to: " + file.getAbsolutePath()
+                    + "\nAttempting to open image with system default viewer..."));
+
+        } catch (WebClientResponseException.NotFound e) {
+            navigate(new SimpleMessageView("No Plot",
+                    "The server reported that no plot exists for this experiment part."));
+        } catch (Exception e) {
+            navigate(new SimpleMessageView("Download Error", "Failed to retrieve or save the plot: " + e.getMessage()));
+        }
+    }
+
+    private void openFile(File file) {
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", "\"\"", file.getAbsolutePath()).start();
+            } else if (os.contains("mac")) {
+                new ProcessBuilder("open", file.getAbsolutePath()).start();
+            } else {
+                new ProcessBuilder("xdg-open", file.getAbsolutePath()).start();
+            }
+        } catch (Exception e) {
+            try {
+                if (System.getProperty("java.awt.headless", "false").equals("false") && Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(file);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
 }

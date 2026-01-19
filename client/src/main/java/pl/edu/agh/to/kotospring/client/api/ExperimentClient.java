@@ -12,6 +12,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 public interface ExperimentClient {
 
@@ -79,6 +80,12 @@ public interface ExperimentClient {
 
         @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/result")
         GetExperimentPartResultResponse getExperimentPartResult(
+                        @PathVariable("id") long id,
+                        @PathVariable("runNo") long runNo,
+                        @PathVariable("partId") long partId);
+
+        @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/plot")
+        Optional<byte[]> getExperimentPartPlot(
                         @PathVariable("id") long id,
                         @PathVariable("runNo") long runNo,
                         @PathVariable("partId") long partId);

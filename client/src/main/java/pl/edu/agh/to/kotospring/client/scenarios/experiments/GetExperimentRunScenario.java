@@ -9,7 +9,6 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.models.MenuOption;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.*;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
-import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
@@ -28,7 +27,7 @@ import java.util.Map;
 public class GetExperimentRunScenario extends Scenario {
 
     private final ExperimentClient client;
-    private final ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider;
+    private final ObjectProvider<GetExperimentPartScenario> getExperimentPartScenarioProvider;
     private long experimentId;
     private long runNo;
 
@@ -38,9 +37,9 @@ public class GetExperimentRunScenario extends Scenario {
     private ExperimentPartStatus currentStatus = null;
 
     public GetExperimentRunScenario(ExperimentClient client,
-            ObjectProvider<GetExperimentPartResultScenario> getExperimentPartResultScenarioProvider) {
+            ObjectProvider<GetExperimentPartScenario> getExperimentPartScenarioProvider) {
         this.client = client;
-        this.getExperimentPartResultScenarioProvider = getExperimentPartResultScenarioProvider;
+        this.getExperimentPartScenarioProvider = getExperimentPartScenarioProvider;
     }
 
     public void setExperimentId(long experimentId) {
@@ -99,7 +98,6 @@ public class GetExperimentRunScenario extends Scenario {
 
             bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
             bindings.onOpenSelectedItem(tableView, MenuOption.class, this::handleRowSelection);
-
 
             return tableView;
 
@@ -195,9 +193,9 @@ public class GetExperimentRunScenario extends Scenario {
     }
 
     private void openDetailsScenario(long experimentId, long runId, long partId) {
-        GetExperimentPartResultScenario experimentPartScenario = getExperimentPartResultScenarioProvider.getObject();
+        GetExperimentPartScenario experimentPartScenario = getExperimentPartScenarioProvider.getObject();
         experimentPartScenario.setExperimentId(experimentId);
-        experimentPartScenario.setRunNo(runId);
+        experimentPartScenario.setRunId(runId);
         experimentPartScenario.setPartId(partId);
         wireChild(experimentPartScenario);
         navigate(experimentPartScenario.buildContext());

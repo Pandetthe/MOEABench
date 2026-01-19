@@ -33,7 +33,6 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentServiceImpl.class);
@@ -182,7 +181,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem).orElseThrow();
         Indicators indicatorsObj = indicatorRegistry.getIndicators(partRequest.indicators(), problem, referenceSet);
 
-        return new QueueData(algorithm, indicatorsObj, definition.getBudget());
+        return new QueueData(algorithm, indicatorsObj, definition.getBudget(), referenceSet, problem);
     }
 
     @Override
@@ -208,8 +207,8 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                                 ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
-                                                 Pageable pageable) {
+            ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+            Pageable pageable) {
         return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end, pageable);
     }
 
@@ -358,7 +357,6 @@ public class ExperimentServiceImpl implements ExperimentService {
         });
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public GetExperimentAggregateResponse getExperimentAggregate(long experimentId) {
@@ -384,24 +382,21 @@ public class ExperimentServiceImpl implements ExperimentService {
                                     row.meanValue(),
                                     row.medianValue(),
                                     row.iqrValue(),
-                                    row.stddevValue()
-                            ));
+                                    row.stddevValue()));
         }
         List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
         for (ExperimentPart definition : definitions) {
             Map<String, String> params = definition.getParameters().stream()
                     .collect(Collectors.toMap(
                             ExperimentPartAlgorithmParameter::getKey,
-                            ExperimentPartAlgorithmParameter::getValue
-                    ));
+                            ExperimentPartAlgorithmParameter::getValue));
 
             aggregateDataList.add(new GetExperimentAggregateData(
                     definition.getAlgorithm(),
                     params,
                     definition.getProblem(),
                     indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
-                    definition.getBudget()
-            ));
+                    definition.getBudget()));
         }
 
         return new GetExperimentAggregateResponse(aggregateDataList);

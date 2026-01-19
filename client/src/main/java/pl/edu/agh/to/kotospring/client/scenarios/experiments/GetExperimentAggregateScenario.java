@@ -14,7 +14,6 @@ import pl.edu.agh.to.kotospring.client.utils.NumberFormatUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 @ScenarioComponent(name = "Get experiment aggregate", type = ScenarioType.OTHER)
@@ -34,8 +33,8 @@ public class GetExperimentAggregateScenario extends Scenario {
             new AggregateTableColumn("Max", 15),
             new AggregateTableColumn("Mean", 15),
             new AggregateTableColumn("Median", 15),
-            new AggregateTableColumn("SD", 15)
-    );
+            new AggregateTableColumn("SD", 15));
+
     public GetExperimentAggregateScenario(ExperimentClient client) {
         this.client = client;
     }
@@ -97,6 +96,5 @@ public class GetExperimentAggregateScenario extends Scenario {
         configure(table);
         return table;
     }
-
 
 }

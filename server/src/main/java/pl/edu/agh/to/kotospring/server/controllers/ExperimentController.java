@@ -3,6 +3,7 @@ package pl.edu.agh.to.kotospring.server.controllers;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
@@ -101,6 +102,22 @@ public final class ExperimentController {
         return experimentService.getExperimentPart(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartResponse)
                 .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment part not found"));
+    }
+
+    @GetMapping(value = "{id}/runs/{runNo}/parts/{partId}/plot", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getExperimentPartPlot(
+            @PathVariable long id,
+            @PathVariable long runNo,
+            @PathVariable long partId) {
+        return experimentService.getExperimentPart(id, runNo, partId)
+                .map(part -> {
+                    byte[] plotImage = part.getPlotImage();
+                    if (plotImage == null) {
+                        throw new NotFoundException("Plot image not found for this part");
+                    }
+                    return ResponseEntity.ok(plotImage);
+                })
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 

@@ -1,7 +1,13 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
+import org.jfree.chart.JFreeChart;
 import org.moeaframework.algorithm.Algorithm;
+import org.moeaframework.algorithm.extension.Frequency;
+import org.moeaframework.analysis.plot.XYPlotBuilder;
+import org.moeaframework.analysis.runtime.InstrumentedAlgorithm;
+import org.moeaframework.analysis.runtime.Instrumenter;
 import org.moeaframework.core.indicator.Indicators;
+import org.moeaframework.core.indicator.StandardIndicator;
 import org.moeaframework.core.population.NondominatedPopulation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +17,12 @@ import pl.edu.agh.to.kotospring.server.models.QueueData;
 import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentStatusService;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.util.Collection;
+import java.util.Optional;
 
 @Service
 public class ExperimentExecutionServiceImpl implements ExperimentExecutionService {
@@ -42,16 +54,94 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
             Algorithm algorithm = queueData.getAlgorithm();
             int budget = queueData.getBudget();
             Indicators indicators = queueData.getIndicators();
-            algorithm.run(budget);
-            NondominatedPopulation result = algorithm.getResult();
+            Collection<StandardIndicator> selectedIndicators = indicators.getSelectedIndicators();
+
+            Instrumenter instrumenter = new Instrumenter()
+                    .withFrequency(Frequency.ofEvaluations(100))
+                    .withReferenceSet(queueData.getReferenceSet());
+
+            attachCollectors(instrumenter, selectedIndicators);
+
+            InstrumentedAlgorithm<Algorithm> instrumentedAlgorithm = instrumenter.instrument(algorithm);
+            instrumentedAlgorithm.run(budget);
+
+            NondominatedPopulation result = instrumentedAlgorithm.getResult();
             Indicators.IndicatorValues indicatorValues = indicators.apply(result);
 
-            experimentStatusService.markPartAsCompleted(partId, indicatorValues, result);
+            Optional<byte[]> plotImage = generatePlotImage(instrumentedAlgorithm, selectedIndicators);
+
+            experimentStatusService.markPartAsCompleted(partId, indicatorValues, result, plotImage);
             logger.info("Finished execution of ExperimentPart ID {}", partId);
 
         } catch (Exception e) {
             logger.error("Error executing ExperimentPart ID {}", partId, e);
             experimentStatusService.markPartAsFailed(partId, e.getMessage());
+        }
+    }
+
+    private Optional<byte[]> generatePlotImage(InstrumentedAlgorithm<Algorithm> instrumentedAlgorithm,
+            Collection<StandardIndicator> selectedIndicators) {
+        if (selectedIndicators.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            JFreeChart chart = new XYPlotBuilder()
+                    .lines(instrumentedAlgorithm.getSeries())
+                    .build();
+
+            BufferedImage image = chart.createBufferedImage(800, 600);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", baos);
+            return Optional.of(baos.toByteArray());
+        } catch (Exception e) {
+            logger.error("Failed to generate plot image", e);
+            return Optional.empty();
+        }
+    }
+
+    private void attachCollectors(Instrumenter instrumenter, Collection<StandardIndicator> selectedIndicators) {
+        for (StandardIndicator indicator : selectedIndicators) {
+            switch (indicator) {
+                case Hypervolume:
+                    instrumenter.attachHypervolumeCollector();
+                    break;
+                case GenerationalDistance:
+                    instrumenter.attachGenerationalDistanceCollector();
+                    break;
+                case GenerationalDistancePlus:
+                    instrumenter.attachGenerationalDistancePlusCollector();
+                    break;
+                case InvertedGenerationalDistance:
+                    instrumenter.attachInvertedGenerationalDistanceCollector();
+                    break;
+                case InvertedGenerationalDistancePlus:
+                    instrumenter.attachInvertedGenerationalDistancePlusCollector();
+                    break;
+                case Spacing:
+                    instrumenter.attachSpacingCollector();
+                    break;
+                case AdditiveEpsilonIndicator:
+                    instrumenter.attachAdditiveEpsilonIndicatorCollector();
+                    break;
+                case Contribution:
+                    instrumenter.attachContributionCollector();
+                    break;
+                case MaximumParetoFrontError:
+                    instrumenter.attachMaximumParetoFrontErrorCollector();
+                    break;
+                case R1Indicator:
+                    instrumenter.attachR1Collector();
+                    break;
+                case R2Indicator:
+                    instrumenter.attachR2Collector();
+                    break;
+                case R3Indicator:
+                    instrumenter.attachR3Collector();
+                    break;
+                default:
+                    break;
+            }
         }
     }
 }
