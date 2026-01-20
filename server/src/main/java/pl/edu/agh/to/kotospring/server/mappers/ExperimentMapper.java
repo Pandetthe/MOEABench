@@ -12,6 +12,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
@@ -205,4 +206,27 @@ public class ExperimentMapper {
 
                 return new GetExperimentPartResultResponse(results, indicatorsValues);
         }
+
+    public GetExperimentGroupResponse mapToGroupResponse(ExperimentGroup group) {
+        Set<ExperimentGroupRunResponse> runResponses = group.getRuns().stream()
+                .map(this::mapToGroupRunResponse)
+                .collect(Collectors.toSet());
+
+        return new GetExperimentGroupResponse(
+                group.getId(),
+                group.getName(),
+                group.getProblems(),
+                group.getAlgorithms(),
+                runResponses
+        );
+    }
+
+    private ExperimentGroupRunResponse mapToGroupRunResponse(ExperimentRun run) {
+        return new ExperimentGroupRunResponse(
+                run.getExperimentId(),
+                run.getRunNo()
+        );
+    }
+
+
 }

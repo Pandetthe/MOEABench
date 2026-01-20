@@ -1,8 +1,7 @@
 package pl.edu.agh.to.kotospring.client.api;
 
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.service.annotation.DeleteExchange;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.PostExchange;
@@ -12,7 +11,9 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public interface ExperimentClient {
 
@@ -107,4 +108,30 @@ public interface ExperimentClient {
 
         @DeleteExchange("/experiments/{id}/runs/{runNo}")
         void deleteExperimentRun(@PathVariable("id") long id, @PathVariable("runNo") long runNo);
-}
+
+        @PostExchange("/experiments/groups")
+        CreateExperimentGroupRequest createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
+
+
+        @GetExchange("/experiments/groups")
+        GetExperimentGroupsResponse getExperimentGroups();
+
+        @PostExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
+        ResponseEntity<?> addRunToExperimentGroup(
+                @PathVariable Long groupId,
+                @PathVariable Long id,
+                @PathVariable Long runNo);
+
+        @DeleteExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
+        void deleteRunFromExperimentGroup(
+                @PathVariable Long groupId,
+                @PathVariable Long id,
+                @PathVariable Long runNo);
+
+        @GetExchange("/experiments/groups/{id}")
+        ResponseEntity<?> getExperimentGroup(@PathVariable Long id);
+
+        @DeleteExchange("/experiments/groups/{id}")
+        void deleteExperimentGroup(@PathVariable Long id);
+    }
+

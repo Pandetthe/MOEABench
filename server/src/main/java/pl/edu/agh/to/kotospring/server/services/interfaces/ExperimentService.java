@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentRun;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
@@ -52,4 +53,16 @@ public interface ExperimentService {
         GetExperimentAggregateResponse getExperimentAggregate(long experimentId);
 
         Optional<String> getExperimentPartCsv(long id, long runNo, long partId);
+
+        ExperimentGroup createExperimentGroup(String name);
+
+        List<ExperimentGroup> getExperimentGroups();
+
+        ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo);
+
+        ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo);
+
+        Optional<ExperimentGroup> getExperimentGroup(long id);
+
+        boolean deleteExperimentGroup(long id);
 }

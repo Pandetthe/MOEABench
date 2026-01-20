@@ -45,6 +45,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final ExperimentExecutionService executionService;
     private final ExperimentRepository experimentRepository;
     private final ExperimentAggregateRepository experimentAggregateRepository;
+    private final ExperimentGroupRepository experimentGroupRepository;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
             AlgorithmRegistryService algorithmRegistry,
@@ -54,7 +55,8 @@ public class ExperimentServiceImpl implements ExperimentService {
             ExperimentPartExecutionRepository experimentPartExecutionRepository,
             ExperimentExecutionService executionService,
             ExperimentRepository experimentRepository,
-            ExperimentAggregateRepository experimentAggregateRepository) {
+            ExperimentAggregateRepository experimentAggregateRepository,
+            ExperimentGroupRepository experimentGroupRepository) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
@@ -64,6 +66,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         this.executionService = executionService;
         this.experimentRepository = experimentRepository;
         this.experimentAggregateRepository = experimentAggregateRepository;
+        this.experimentGroupRepository = experimentGroupRepository;
     }
 
     @Override
@@ -444,5 +447,61 @@ public class ExperimentServiceImpl implements ExperimentService {
 
             return csv.toString();
         });
+    }
+
+
+    @Override
+    @Transactional
+    public ExperimentGroup createExperimentGroup(String name) {
+        ExperimentGroup group = new ExperimentGroup(name);
+        return experimentGroupRepository.save(group);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExperimentGroup> getExperimentGroups() {
+        return experimentGroupRepository.findAll();
+    }
+
+    @Override
+    @Transactional
+    public ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo) {
+        ExperimentGroup group = experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
+
+        ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
+                .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
+
+        group.addRun(run);
+        return experimentGroupRepository.save(group);
+    }
+
+    @Override
+    @Transactional
+    public ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo) {
+        ExperimentGroup group = experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
+
+        ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
+                .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
+
+        group.removeRun(run);
+        return experimentGroupRepository.save(group);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentGroup> getExperimentGroup(long id) {
+        return experimentGroupRepository.findById(id);
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteExperimentGroup(long id) {
+        if (experimentGroupRepository.existsById(id)) {
+            experimentGroupRepository.deleteById(id);
+            return true;
+        }
+        return false;
     }
 }

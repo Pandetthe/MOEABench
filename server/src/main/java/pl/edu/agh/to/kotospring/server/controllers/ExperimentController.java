@@ -6,6 +6,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.mappers.ExperimentMapper;
@@ -15,6 +17,8 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 import io.swagger.v3.oas.annotations.Operation;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
+import java.util.stream.Collectors;
 
 import java.time.OffsetDateTime;
 
@@ -218,4 +222,53 @@ public final class ExperimentController {
             return ResponseEntity.noContent().build();
         throw new NotFoundException("Experiment run not found");
     }
+
+    @PostMapping("groups")
+    public ResponseEntity<?> createExperimentGroup(@RequestBody CreateExperimentGroupRequest request) {
+        ExperimentGroup group = experimentService.createExperimentGroup(request.name());
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @GetMapping("groups")
+    public ResponseEntity<?> getExperimentGroups() {
+        List<ExperimentGroup> groups = experimentService.getExperimentGroups();
+        return ResponseEntity.ok(groups.stream()
+                .map(experimentMapper::mapToGroupResponse)
+                .collect(Collectors.toList()));
+    }
+
+    @PostMapping("{id}/runs/{runNo}/groups/{groupId}")
+    public ResponseEntity<?> addRunToExperimentGroup(
+            @PathVariable Long groupId,
+            @PathVariable Long id,
+            @PathVariable Long runNo) {
+        ExperimentGroup group = experimentService.addRunToExperimentGroup(groupId, id, runNo);
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @DeleteMapping("{id}/runs/{runNo}/groups/{groupId}")
+    public ResponseEntity<?> deleteRunFromExperimentGroup(
+            @PathVariable Long groupId,
+            @PathVariable Long id,
+            @PathVariable Long runNo) {
+        ExperimentGroup group = experimentService.deleteRunFromExperimentGroup(groupId, id, runNo);
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @GetMapping("groups/{id}")
+    public ResponseEntity<?> getExperimentGroup(@PathVariable Long id) {
+        return experimentService.getExperimentGroup(id)
+                .map(experimentMapper::mapToGroupResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
+    }
+
+    @DeleteMapping("groups/{id}")
+    public ResponseEntity<?> deleteExperimentGroup(@PathVariable Long id) {
+        if (experimentService.deleteExperimentGroup(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        throw new NotFoundException("Experiment group not found");
+    }
+
 }
