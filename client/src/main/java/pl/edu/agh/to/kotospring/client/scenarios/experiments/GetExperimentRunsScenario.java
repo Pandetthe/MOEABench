@@ -78,13 +78,14 @@ public class GetExperimentRunsScenario extends Scenario {
             }
 
             SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
-            tableView.setTitle(String.format("Runs (Page %d/%d)", currentPage + 1, Math.max(1, totalPages)));
+            tableView.setTitle(String.format("Runs (Page %d/%d) - Press Enter to Add to Group", currentPage + 1, Math.max(1, totalPages)));
             tableView.setAutoRunOnOpen(false);
 
             configure(tableView);
 
             ScenarioBindings bindings = new ScenarioBindings(getEventloop());
             bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
+            bindings.onOpenSelectedItem(tableView, pl.edu.agh.to.kotospring.client.models.MenuOption.class, this::handleRowSelection);
 
             // Row paging bindings
             getEventloop().onDestroy(
@@ -204,6 +205,71 @@ public class GetExperimentRunsScenario extends Scenario {
                 getTerminalUI().setFocus(tv);
             }
         }));
+    }
+
+    private void handleRowSelection(pl.edu.agh.to.kotospring.client.models.MenuOption option) {
+        String rowText = option.name();
+
+        if (rowText.contains("Experiment ID") && rowText.contains("Run ID")) return;
+        if (rowText.startsWith("----")) return;
+
+        try {
+            String[] columns = rowText.split("\\|");
+            String expIdStr = null;
+            String runIdStr = null;
+
+            int found = 0;
+            for (String col : columns) {
+                if (!col.trim().isEmpty()) {
+                    if (found == 0) expIdStr = col.trim();
+                    else if (found == 1) runIdStr = col.trim();
+                    found++;
+                    if (found >= 2) break;
+                }
+            }
+
+            if (expIdStr != null && runIdStr != null) {
+                long experimentId = Long.parseLong(expIdStr);
+                long runNo = Long.parseLong(runIdStr);
+                openAddToGroupForm(experimentId, runNo);
+            }
+        } catch (NumberFormatException e) {
+        }
+    }
+
+    private void openAddToGroupForm(long experimentId, long runNo) {
+        InputForm form = new InputForm(getTerminalUI(), "Add Run to Group");
+        form.addInput("groupId", "Group ID");
+        form.setSubmitAction("Add", (data) -> handleAddRunToGroup(data, experimentId, runNo));
+        configure(form);
+        form.focusFirstInput();
+        navigate(createContext(form));
+    }
+
+    private void handleAddRunToGroup(Map<String, String> data, long experimentId, long runNo) {
+        try {
+            long groupId = Long.parseLong(data.get("groupId").trim());
+            experimentClient.addRunToExperimentGroup(groupId, experimentId, runNo);
+            
+            SimpleMessageView successView = new SimpleMessageView("Success", 
+                String.format("Run %d (Exp %d) added to Group %d", runNo, experimentId, groupId));
+            configure(successView);
+            navigate(createContext(successView, () -> {
+                View runsView = build();
+                replace(createContext(runsView, () -> {
+                     if (runsView instanceof SimpleTableView tv) getTerminalUI().setFocus(tv);
+                }));
+            }));
+
+        } catch (NumberFormatException e) {
+            SimpleMessageView errorView = new SimpleMessageView("Error", "Invalid Group ID format.");
+            configure(errorView);
+            navigate(createContext(errorView));
+        } catch (Exception e) {
+             SimpleMessageView errorView = new SimpleMessageView("Error", "Failed to add run: " + e.getMessage());
+             configure(errorView);
+             navigate(createContext(errorView));
+        }
     }
 
     @Override

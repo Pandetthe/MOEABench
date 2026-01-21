@@ -17,6 +17,7 @@ import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.models.GroupIndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.IndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
@@ -376,7 +377,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         Map<Long, Map<String, GetExperimentAggregateDataIndicator>> indicatorsByDefinition = new HashMap<>();
         for (IndicatorAggregateRow row : rows) {
             indicatorsByDefinition
-                    .computeIfAbsent(row.definitionId(), __ -> new HashMap<>())
+                    .computeIfAbsent(row.definitionId(), _ -> new HashMap<>())
                     .put(row.indicator(),
                             new GetExperimentAggregateDataIndicator(
                                     row.minValue(),
@@ -399,6 +400,66 @@ public class ExperimentServiceImpl implements ExperimentService {
                     definition.getProblem(),
                     indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
                     definition.getBudget()));
+        }
+
+        return new GetExperimentAggregateResponse(aggregateDataList);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetExperimentAggregateResponse getExperimentGroupAggregate(long groupId) {
+        if (!experimentGroupRepository.existsById(groupId)) {
+            throw new NotFoundException("Experiment group not found");
+        }
+
+        List<Object[]> rawRows = experimentAggregateRepository.findIndicatorAggregatesByExperimentGroupId(groupId);
+        List<GroupIndicatorAggregateRow> rows = rawRows.stream()
+                .map(GroupIndicatorAggregateRow::fromNativeRow)
+                .toList();
+        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> indicatorsByAlgoProblem = new HashMap<>();
+
+        for (GroupIndicatorAggregateRow row : rows) {
+            indicatorsByAlgoProblem
+                    .computeIfAbsent(row.algorithm(), _ -> new HashMap<>())
+                    .computeIfAbsent(row.problem(), _ -> new HashMap<>())
+                    .put(row.indicator(),
+                            new GetExperimentAggregateDataIndicator(
+                                    row.minValue(),
+                                    row.maxValue(),
+                                    row.meanValue(),
+                                    row.medianValue(),
+                                    row.iqrValue(),
+                                    row.stddevValue()));
+        }
+        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
+        ExperimentGroup group = experimentGroupRepository.findById(groupId).orElseThrow();
+        for (String algorithm : indicatorsByAlgoProblem.keySet()) {
+            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = indicatorsByAlgoProblem.get(algorithm);
+            for (String problem : problemsMap.keySet()) {
+                Map<String, GetExperimentAggregateDataIndicator> indicators = problemsMap.get(problem);
+                int budget = 0;
+                Map<String, String> params = Collections.emptyMap();
+                Optional<ExperimentRun> representativeRun = group.getRuns().stream().findFirst();
+                if (representativeRun.isPresent()) {
+                     for(ExperimentPartExecution epe : representativeRun.get().getParts()) {
+                         if(epe.getExperimentPart().getAlgorithm().equals(algorithm) && epe.getExperimentPart().getProblem().equals(problem)) {
+                             budget = epe.getExperimentPart().getBudget();
+                             params = epe.getExperimentPart().getParameters().stream()
+                                     .collect(Collectors.toMap(
+                                             ExperimentPartAlgorithmParameter::getKey,
+                                             ExperimentPartAlgorithmParameter::getValue));
+                             break;
+                         }
+                     }
+                }
+                aggregateDataList.add(new GetExperimentAggregateData(
+                        algorithm,
+                        params,
+                        problem,
+                        indicators,
+                        budget));
+            }
         }
 
         return new GetExperimentAggregateResponse(aggregateDataList);
@@ -449,7 +510,6 @@ public class ExperimentServiceImpl implements ExperimentService {
         });
     }
 
-
     @Override
     @Transactional
     public ExperimentGroup createExperimentGroup(String name) {
@@ -461,6 +521,12 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional(readOnly = true)
     public List<ExperimentGroup> getExperimentGroups() {
         return experimentGroupRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentGroup> getExperimentGroup(long groupId) {
+        return experimentGroupRepository.findById(groupId);
     }
 
     @Override
@@ -478,6 +544,16 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional
+    public boolean deleteExperimentGroup(long groupId) {
+        if (experimentGroupRepository.existsById(groupId)) {
+            experimentGroupRepository.deleteById(groupId);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional
     public ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo) {
         ExperimentGroup group = experimentGroupRepository.findById(groupId)
                 .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
@@ -485,23 +561,10 @@ public class ExperimentServiceImpl implements ExperimentService {
         ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
                 .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
 
-        group.removeRun(run);
+        if (!group.removeRun(run)) {
+            throw new NotFoundException("Run " + runNo + " of experiment " + id + " is not part of group " + groupId);
+        }
         return experimentGroupRepository.save(group);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Optional<ExperimentGroup> getExperimentGroup(long id) {
-        return experimentGroupRepository.findById(id);
-    }
-
-    @Override
-    @Transactional
-    public boolean deleteExperimentGroup(long id) {
-        if (experimentGroupRepository.existsById(id)) {
-            experimentGroupRepository.deleteById(id);
-            return true;
-        }
-        return false;
-    }
 }

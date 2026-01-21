@@ -79,14 +79,15 @@ public class ExperimentGroup {
         }
     }
 
-    public void removeRun(ExperimentRun run) {
+    public boolean removeRun(ExperimentRun run) {
         if (run == null)
-            return;
-        this.runs.remove(run);
-        if (this.runs.isEmpty()) {
+            return false;
+        boolean isRemoved = this.runs.remove(run);
+        if (isRemoved && this.runs.isEmpty()) {
             this.problems.clear();
             this.algorithms.clear();
         }
+        return isRemoved;
     }
 
     public Long getId() {

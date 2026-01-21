@@ -52,17 +52,22 @@ public interface ExperimentService {
 
         GetExperimentAggregateResponse getExperimentAggregate(long experimentId);
 
+        GetExperimentAggregateResponse getExperimentGroupAggregate(long groupId);
+
         Optional<String> getExperimentPartCsv(long id, long runNo, long partId);
 
         ExperimentGroup createExperimentGroup(String name);
 
         List<ExperimentGroup> getExperimentGroups();
 
+        Optional<ExperimentGroup> getExperimentGroup(long groupId);
+
         ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo);
+
+        boolean deleteExperimentGroup(long groupId);
 
         ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo);
 
-        Optional<ExperimentGroup> getExperimentGroup(long id);
 
-        boolean deleteExperimentGroup(long id);
+
 }

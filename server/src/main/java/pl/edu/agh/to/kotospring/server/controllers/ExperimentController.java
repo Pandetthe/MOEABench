@@ -237,6 +237,14 @@ public final class ExperimentController {
                 .collect(Collectors.toList()));
     }
 
+    @GetMapping("groups/{groupId}")
+    public ResponseEntity<?> getExperimentGroup(@PathVariable Long groupId) {
+        return experimentService.getExperimentGroup(groupId)
+                .map(experimentMapper::mapToGroupResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
+    }
+
     @PostMapping("{id}/runs/{runNo}/groups/{groupId}")
     public ResponseEntity<?> addRunToExperimentGroup(
             @PathVariable Long groupId,
@@ -244,6 +252,14 @@ public final class ExperimentController {
             @PathVariable Long runNo) {
         ExperimentGroup group = experimentService.addRunToExperimentGroup(groupId, id, runNo);
         return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @DeleteMapping("groups/{groupId}")
+    public ResponseEntity<?> deleteExperimentGroup(@PathVariable Long groupId) {
+        if (experimentService.deleteExperimentGroup(groupId)) {
+            return ResponseEntity.noContent().build();
+        }
+        throw new NotFoundException("Experiment group not found");
     }
 
     @DeleteMapping("{id}/runs/{runNo}/groups/{groupId}")
@@ -255,20 +271,9 @@ public final class ExperimentController {
         return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
     }
 
-    @GetMapping("groups/{id}")
-    public ResponseEntity<?> getExperimentGroup(@PathVariable Long id) {
-        return experimentService.getExperimentGroup(id)
-                .map(experimentMapper::mapToGroupResponse)
-                .map(ResponseEntity::ok)
-                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
-    }
-
-    @DeleteMapping("groups/{id}")
-    public ResponseEntity<?> deleteExperimentGroup(@PathVariable Long id) {
-        if (experimentService.deleteExperimentGroup(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        throw new NotFoundException("Experiment group not found");
+    @GetMapping("groups/{groupId}/aggregate")
+    public ResponseEntity<GetExperimentAggregateResponse> getExperimentGroupAggregate(@PathVariable Long groupId) {
+        return ResponseEntity.ok(experimentService.getExperimentGroupAggregate(groupId));
     }
 
 }

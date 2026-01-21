@@ -5,15 +5,27 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
+import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
+
+import org.springframework.beans.factory.ObjectProvider;
+import pl.edu.agh.to.kotospring.client.models.MenuOption;
+import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioBindings;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @ScenarioComponent(name = "Get experiment group", type = ScenarioType.OTHER)
 public class GetExperimentGroupScenario extends Scenario {
 
     private long groupId;
     private final ExperimentClient experimentClient;
+    private final ObjectProvider<GetExperimentRunScenario> experimentRunScenarioProvider;
 
-    public GetExperimentGroupScenario(ExperimentClient experimentClient) {
+    public GetExperimentGroupScenario(ExperimentClient experimentClient,
+                                      ObjectProvider<GetExperimentRunScenario> experimentRunScenarioProvider) {
         this.experimentClient = experimentClient;
+        this.experimentRunScenarioProvider = experimentRunScenarioProvider;
     }
 
     public void setGroupId(long groupId) {
@@ -22,6 +34,52 @@ public class GetExperimentGroupScenario extends Scenario {
 
     @Override
     public View build() {
-        return null;
+        try {
+            var group = experimentClient.getExperimentGroup(groupId);
+            var runs = group.runs();
+
+            List<String> headers = List.of("Experiment ID", "Run No");
+            List<Integer> widths = List.of(20, 10);
+            List<List<String>> rows = new ArrayList<>();
+
+            for (var run : runs) {
+                List<String> row = new ArrayList<>();
+                row.add(String.valueOf(run.experimentId()));
+                row.add(String.valueOf(run.runNo()));
+                rows.add(row);
+            }
+
+            SimpleTableView tableView = new SimpleTableView(headers, rows, widths);
+            tableView.setTitle("Group: " + group.name());
+            tableView.setAutoRunOnOpen(false);
+            configure(tableView);
+
+            ScenarioBindings bindings = new ScenarioBindings(getEventloop());
+            bindings.onOpenSelectedItem(tableView, MenuOption.class, this::handleRowSelection);
+
+            return tableView;
+
+        } catch (Exception e) {
+            return new SimpleMessageView("Error", "Could not fetch experiment group: " + e.getMessage());
+        }
+    }
+
+    private void handleRowSelection(MenuOption option) {
+        String rowText = option.name();
+
+        try {
+            String[] parts = rowText.split("\\|");
+            if (parts.length >= 2) {
+                long experimentId = Long.parseLong(parts[0].trim());
+                long runNo = Long.parseLong(parts[1].trim());
+
+                GetExperimentRunScenario scenario = experimentRunScenarioProvider.getObject();
+                scenario.setExperimentId(experimentId);
+                scenario.setRunNo(runNo);
+                wireChild(scenario);
+                navigate(scenario.buildContext());
+            }
+        } catch (NumberFormatException e) {
+        }
     }
 }

@@ -1,6 +1,5 @@
 package pl.edu.agh.to.kotospring.client.api;
 
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.service.annotation.DeleteExchange;
 import org.springframework.web.service.annotation.GetExchange;
@@ -11,9 +10,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 public interface ExperimentClient {
 
@@ -110,17 +107,22 @@ public interface ExperimentClient {
         void deleteExperimentRun(@PathVariable("id") long id, @PathVariable("runNo") long runNo);
 
         @PostExchange("/experiments/groups")
-        CreateExperimentGroupRequest createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
-
+        void createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
 
         @GetExchange("/experiments/groups")
         GetExperimentGroupsResponse getExperimentGroups();
 
+        @GetExchange("/experiments/groups/{groupId}")
+        GetExperimentGroupResponse getExperimentGroup(@PathVariable Long groupId);
+
         @PostExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
-        ResponseEntity<?> addRunToExperimentGroup(
+        void addRunToExperimentGroup(
                 @PathVariable Long groupId,
                 @PathVariable Long id,
                 @PathVariable Long runNo);
+
+        @DeleteExchange("/experiments/groups/{groupId}")
+        void deleteExperimentGroup(@PathVariable Long groupId);
 
         @DeleteExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
         void deleteRunFromExperimentGroup(
@@ -128,10 +130,8 @@ public interface ExperimentClient {
                 @PathVariable Long id,
                 @PathVariable Long runNo);
 
-        @GetExchange("/experiments/groups/{id}")
-        ResponseEntity<?> getExperimentGroup(@PathVariable Long id);
+        @GetExchange("/experiments/groups/{groupId}/aggregate")
+        GetExperimentAggregateResponse getExperimentGroupAggregate(@PathVariable("groupId") long id);
 
-        @DeleteExchange("/experiments/groups/{id}")
-        void deleteExperimentGroup(@PathVariable Long id);
     }
 

@@ -15,10 +15,7 @@ import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentGroupsResponse;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentGroupsResponseData;
-import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentsResponseData;
 
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,12 +23,12 @@ import java.util.List;
 public class GetExperimentGroupsScenario extends Scenario {
 
     private final ExperimentClient experimentClient;
-    private final ObjectProvider<GetExperimentGroupScenario> getExperimentGroupScenarioProvider;
+    private final ObjectProvider<ExperimentGroupOptionsScenario> experimentGroupOptionsScenarioProvider;
 
 
-    public GetExperimentGroupsScenario(ExperimentClient experimentClient, ObjectProvider<GetExperimentGroupScenario> getExperimentGroupScenarioProvider) {
+    public GetExperimentGroupsScenario(ExperimentClient experimentClient, ObjectProvider<ExperimentGroupOptionsScenario> experimentGroupOptionsScenarioProvider) {
         this.experimentClient = experimentClient;
-        this.getExperimentGroupScenarioProvider = getExperimentGroupScenarioProvider;
+        this.experimentGroupOptionsScenarioProvider = experimentGroupOptionsScenarioProvider;
     }
 
 
@@ -86,10 +83,16 @@ public class GetExperimentGroupsScenario extends Scenario {
 
         try {
             String[] columns = rowText.split("\\|");
-            if (columns.length > 0) {
-                String groupIdStr = columns[0].trim();
-                long groupId = Long.parseLong(groupIdStr);
+            String groupIdStr = null;
+            for (String col : columns) {
+                if (!col.trim().isEmpty()) {
+                    groupIdStr = col.trim();
+                    break;
+                }
+            }
 
+            if (groupIdStr != null) {
+                long groupId = Long.parseLong(groupIdStr);
                 openOptionsScenario(groupId);
             }
         } catch (NumberFormatException ignored) {
@@ -97,9 +100,9 @@ public class GetExperimentGroupsScenario extends Scenario {
     }
 
     private void openOptionsScenario(long groupId) {
-        GetExperimentGroupScenario groupScenario = getExperimentGroupScenarioProvider.getObject();
-        groupScenario.setGroupId(groupId);
-        wireChild(groupScenario);
-        navigate(groupScenario.buildContext());
+        ExperimentGroupOptionsScenario optionsScenario = experimentGroupOptionsScenarioProvider.getObject();
+        optionsScenario.setGroupId(groupId);
+        wireChild(optionsScenario);
+        navigate(optionsScenario.buildContext());
     }
 }
