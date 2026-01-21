@@ -61,7 +61,7 @@ public class ExperimentGroup {
             }
 
             if (!currentRunProblems.equals(this.problems) || !currentRunAlgorithms.equals(this.algorithms)) {
-                throw new IllegalArgumentException("Run must have the same problems and algorithms as the other runs");
+                throw new IllegalArgumentException("Run is not compatible with other runs in the group");
             }
         }
 

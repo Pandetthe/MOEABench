@@ -63,6 +63,11 @@ public class ExperimentEndpointErrorAdvice {
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse(ex.getMessage()));
     }
+    
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(ex.getMessage()));
+    }
 
     private ResponseEntity<ErrorResponse> translateDetailedNotFound(long expId, long runNo, long partId) {
         boolean expExists = experimentRepository.existsById(expId);

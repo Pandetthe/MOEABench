@@ -18,10 +18,13 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import pl.edu.agh.to.kotospring.client.services.ExperimentErrorHandler;
+import java.nio.charset.StandardCharsets;
 
 @ScenarioComponent(name = "Get all runs", type = ScenarioType.EXPERIMENT_MENU)
 public class GetExperimentRunsScenario extends Scenario {
     private final ExperimentClient experimentClient;
+    private final ExperimentErrorHandler errorHandler;
 
     private String currentAlgorithm = null;
     private String currentProblem = null;
@@ -34,8 +37,9 @@ public class GetExperimentRunsScenario extends Scenario {
     private final int pageSize = 20;
     private int totalPages = 1;
 
-    public GetExperimentRunsScenario(ExperimentClient experimentClient) {
+    public GetExperimentRunsScenario(ExperimentClient experimentClient, ExperimentErrorHandler errorHandler) {
         this.experimentClient = experimentClient;
+        this.errorHandler = errorHandler;
     }
 
     @Override
@@ -234,6 +238,9 @@ public class GetExperimentRunsScenario extends Scenario {
                 openAddToGroupForm(experimentId, runNo);
             }
         } catch (NumberFormatException e) {
+            SimpleMessageView errorView = new SimpleMessageView("Error", "Invalid number format.");
+            configure(errorView);
+            navigate(createContext(errorView));
         }
     }
 
@@ -261,6 +268,13 @@ public class GetExperimentRunsScenario extends Scenario {
                 }));
             }));
 
+        } catch (WebClientResponseException e) {
+            String body = e.getResponseBodyAsString(StandardCharsets.UTF_8);
+            View resultView = errorHandler.httpErrorView(e.getStatusCode().value(),
+                    e.getStatusText(),
+                    body);
+            configure(resultView);
+            navigate(createContext(resultView, () -> getTerminalUI().setFocus(resultView)));
         } catch (NumberFormatException e) {
             SimpleMessageView errorView = new SimpleMessageView("Error", "Invalid Group ID format.");
             configure(errorView);
