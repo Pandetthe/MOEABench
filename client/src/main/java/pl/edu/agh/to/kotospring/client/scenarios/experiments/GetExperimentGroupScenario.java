@@ -1,6 +1,8 @@
 package pl.edu.agh.to.kotospring.client.scenarios.experiments;
 
 import org.springframework.shell.component.view.control.View;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
@@ -59,6 +61,13 @@ public class GetExperimentGroupScenario extends Scenario {
 
             return tableView;
 
+        } catch (WebClientRequestException e) {
+            return new SimpleMessageView("Connection Error", "Service unavailable. Could not connect to the server.");
+        } catch (WebClientResponseException e) {
+            if (e.getStatusCode().is5xxServerError()) {
+                return new SimpleMessageView("Server Error", "Internal Server Error. Please try again later.");
+            }
+            return new SimpleMessageView("Error", "Server returned error: " + e.getStatusCode());
         } catch (Exception e) {
             return new SimpleMessageView("Error", "Could not fetch experiment group: " + e.getMessage());
         }
