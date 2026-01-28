@@ -103,44 +103,19 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     private void attachCollectors(Instrumenter instrumenter, Collection<StandardIndicator> selectedIndicators) {
         for (StandardIndicator indicator : selectedIndicators) {
             switch (indicator) {
-                case Hypervolume:
-                    instrumenter.attachHypervolumeCollector();
-                    break;
-                case GenerationalDistance:
-                    instrumenter.attachGenerationalDistanceCollector();
-                    break;
-                case GenerationalDistancePlus:
-                    instrumenter.attachGenerationalDistancePlusCollector();
-                    break;
-                case InvertedGenerationalDistance:
-                    instrumenter.attachInvertedGenerationalDistanceCollector();
-                    break;
-                case InvertedGenerationalDistancePlus:
-                    instrumenter.attachInvertedGenerationalDistancePlusCollector();
-                    break;
-                case Spacing:
-                    instrumenter.attachSpacingCollector();
-                    break;
-                case AdditiveEpsilonIndicator:
-                    instrumenter.attachAdditiveEpsilonIndicatorCollector();
-                    break;
-                case Contribution:
-                    instrumenter.attachContributionCollector();
-                    break;
-                case MaximumParetoFrontError:
-                    instrumenter.attachMaximumParetoFrontErrorCollector();
-                    break;
-                case R1Indicator:
-                    instrumenter.attachR1Collector();
-                    break;
-                case R2Indicator:
-                    instrumenter.attachR2Collector();
-                    break;
-                case R3Indicator:
-                    instrumenter.attachR3Collector();
-                    break;
-                default:
-                    break;
+                case Hypervolume -> instrumenter.attachHypervolumeCollector();
+                case GenerationalDistance -> instrumenter.attachGenerationalDistanceCollector();
+                case GenerationalDistancePlus -> instrumenter.attachGenerationalDistancePlusCollector();
+                case InvertedGenerationalDistance -> instrumenter.attachInvertedGenerationalDistanceCollector();
+                case InvertedGenerationalDistancePlus -> instrumenter.attachInvertedGenerationalDistancePlusCollector();
+                case Spacing -> instrumenter.attachSpacingCollector();
+                case AdditiveEpsilonIndicator -> instrumenter.attachAdditiveEpsilonIndicatorCollector();
+                case Contribution -> instrumenter.attachContributionCollector();
+                case MaximumParetoFrontError -> instrumenter.attachMaximumParetoFrontErrorCollector();
+                case R1Indicator -> instrumenter.attachR1Collector();
+                case R2Indicator -> instrumenter.attachR2Collector();
+                case R3Indicator -> instrumenter.attachR3Collector();
+                default -> {}
             }
         }
     }
