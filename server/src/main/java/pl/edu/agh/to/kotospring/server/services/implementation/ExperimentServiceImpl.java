@@ -409,60 +409,89 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public GetExperimentAggregateResponse getExperimentGroupAggregate(long groupId) {
-        if (!experimentGroupRepository.existsById(groupId)) {
-            throw new NotFoundException("Experiment group not found");
-        }
+        ExperimentGroup group = getGroupOrThrow(groupId);
+        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> indicatorsStructure =
+                fetchAndStructureIndicators(groupId);
+        List<GetExperimentAggregateData> responseList =
+                buildAggregateDataList(indicatorsStructure, group);
 
+        return new GetExperimentAggregateResponse(responseList);
+    }
+
+    private ExperimentGroup getGroupOrThrow(long groupId) {
+        return experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
+    }
+
+    private Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> fetchAndStructureIndicators(long groupId) {
         List<Object[]> rawRows = experimentAggregateRepository.findIndicatorAggregatesByExperimentGroupId(groupId);
-        List<GroupIndicatorAggregateRow> rows = rawRows.stream()
-                .map(GroupIndicatorAggregateRow::fromNativeRow)
-                .toList();
-        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> indicatorsByAlgoProblem = new HashMap<>();
+        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> structure = new HashMap<>();
+        for (Object[] rawRow : rawRows) {
+            GroupIndicatorAggregateRow row = GroupIndicatorAggregateRow.fromNativeRow(rawRow);
+            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = structure.computeIfAbsent(row.algorithm(), k -> new HashMap<>());
 
-        for (GroupIndicatorAggregateRow row : rows) {
-            indicatorsByAlgoProblem
-                    .computeIfAbsent(row.algorithm(), _ -> new HashMap<>())
-                    .computeIfAbsent(row.problem(), _ -> new HashMap<>())
-                    .put(row.indicator(),
-                            new GetExperimentAggregateDataIndicator(
-                                    row.minValue(),
-                                    row.maxValue(),
-                                    row.meanValue(),
-                                    row.medianValue(),
-                                    row.iqrValue(),
-                                    row.stddevValue()));
+            Map<String, GetExperimentAggregateDataIndicator> indicatorsMap = problemsMap.computeIfAbsent(row.problem(), k -> new HashMap<>());
+
+            indicatorsMap.put(row.indicator(), new GetExperimentAggregateDataIndicator(
+                    row.minValue(), row.maxValue(), row.meanValue(),
+                    row.medianValue(), row.iqrValue(), row.stddevValue()
+            ));
         }
-        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
-        ExperimentGroup group = experimentGroupRepository.findById(groupId).orElseThrow();
-        for (String algorithm : indicatorsByAlgoProblem.keySet()) {
-            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = indicatorsByAlgoProblem.get(algorithm);
-            for (String problem : problemsMap.keySet()) {
-                Map<String, GetExperimentAggregateDataIndicator> indicators = problemsMap.get(problem);
-                int budget = 0;
-                Map<String, String> params = Collections.emptyMap();
-                Optional<ExperimentRun> representativeRun = group.getRuns().stream().findFirst();
-                if (representativeRun.isPresent()) {
-                     for(ExperimentPartExecution epe : representativeRun.get().getParts()) {
-                         if(epe.getExperimentPart().getAlgorithm().equals(algorithm) && epe.getExperimentPart().getProblem().equals(problem)) {
-                             budget = epe.getExperimentPart().getBudget();
-                             params = epe.getExperimentPart().getParameters().stream()
-                                     .collect(Collectors.toMap(
-                                             ExperimentPartAlgorithmParameter::getKey,
-                                             ExperimentPartAlgorithmParameter::getValue));
-                             break;
-                         }
-                     }
-                }
-                aggregateDataList.add(new GetExperimentAggregateData(
+
+        return structure;
+    }
+
+    private List<GetExperimentAggregateData> buildAggregateDataList(
+            Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> structure,
+            ExperimentGroup group) {
+
+        List<GetExperimentAggregateData> result = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> algoEntry : structure.entrySet()) {
+            String algorithm = algoEntry.getKey();
+            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = algoEntry.getValue();
+
+            for (Map.Entry<String, Map<String, GetExperimentAggregateDataIndicator>> problemEntry : problemsMap.entrySet()) {
+                String problem = problemEntry.getKey();
+                Map<String, GetExperimentAggregateDataIndicator> indicators = problemEntry.getValue();
+                ExperimentPartMetadata metadata = findMetadataFor(group, algorithm, problem);
+                result.add(new GetExperimentAggregateData(
                         algorithm,
-                        params,
+                        metadata.params,
                         problem,
                         indicators,
-                        budget));
+                        metadata.budget
+                ));
             }
         }
 
-        return new GetExperimentAggregateResponse(aggregateDataList);
+        return result;
+    }
+
+    private static class ExperimentPartMetadata {
+        int budget = 0;
+        Map<String, String> params = Collections.emptyMap();
+    }
+
+    private ExperimentPartMetadata findMetadataFor(ExperimentGroup group, String algorithm, String problem) {
+        ExperimentPartMetadata metadata = new ExperimentPartMetadata();
+        if (group.getRuns() == null || group.getRuns().isEmpty()) {
+            return metadata;
+        }
+        ExperimentRun representativeRun = group.getRuns().iterator().next();
+
+        for (ExperimentPartExecution epe : representativeRun.getParts()) {
+            ExperimentPart part = epe.getExperimentPart();
+            if (part.getAlgorithm().equals(algorithm) && part.getProblem().equals(problem)) {
+                metadata.budget = part.getBudget();
+                metadata.params = new HashMap<>();
+                for (ExperimentPartAlgorithmParameter param : part.getParameters()) {
+                    metadata.params.put(param.getKey(), param.getValue());
+                }
+                break;
+            }
+        }
+
+        return metadata;
     }
 
     @Override
@@ -474,41 +503,62 @@ public class ExperimentServiceImpl implements ExperimentService {
                 return "";
             }
 
-            TreeSet<String> varKeys = new TreeSet<>();
-            TreeSet<String> objKeys = new TreeSet<>();
-            TreeSet<String> constKeys = new TreeSet<>();
-
-            for (ExperimentPartSolution solution : solutions) {
-                varKeys.addAll(solution.getVariables().keySet());
-                objKeys.addAll(solution.getObjectives().keySet());
-                constKeys.addAll(solution.getConstraints().keySet());
-            }
-
+            CsvStructure structure = extractCsvStructure(solutions);
             StringBuilder csv = new StringBuilder();
-
-            List<String> header = new ArrayList<>();
-            for (String k : varKeys)
-                header.add("Var:" + k);
-            for (String k : objKeys)
-                header.add("Obj:" + k);
-            for (String k : constKeys)
-                header.add("Const:" + k);
-            csv.append(String.join(",", header)).append("\n");
-
-            for (ExperimentPartSolution solution : solutions) {
-                List<String> row = new ArrayList<>();
-                for (String k : varKeys)
-                    row.add(solution.getVariables().getOrDefault(k, ""));
-                for (String k : objKeys)
-                    row.add(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0)));
-                for (String k : constKeys)
-                    row.add(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0)));
-                csv.append(String.join(",", row)).append("\n");
-            }
+            csv.append(createHeader(structure)).append("\n");
+            csv.append(createBody(solutions, structure));
 
             return csv.toString();
         });
     }
+
+    private CsvStructure extractCsvStructure(Set<ExperimentPartSolution> solutions) {
+        TreeSet<String> varKeys = new TreeSet<>();
+        TreeSet<String> objKeys = new TreeSet<>();
+        TreeSet<String> constKeys = new TreeSet<>();
+
+        for (ExperimentPartSolution solution : solutions) {
+            varKeys.addAll(solution.getVariables().keySet());
+            objKeys.addAll(solution.getObjectives().keySet());
+            constKeys.addAll(solution.getConstraints().keySet());
+        }
+        return new CsvStructure(varKeys, objKeys, constKeys);
+    }
+
+    private String createHeader(CsvStructure structure) {
+        List<String> header = new ArrayList<>();
+        structure.varKeys().forEach(k -> header.add("Var:" + k));
+        structure.objKeys().forEach(k -> header.add("Obj:" + k));
+        structure.constKeys().forEach(k -> header.add("Const:" + k));
+        return String.join(",", header);
+    }
+
+    private String createBody(Set<ExperimentPartSolution> solutions, CsvStructure structure) {
+        StringBuilder body = new StringBuilder();
+        for (ExperimentPartSolution solution : solutions) {
+            String row = createRow(solution, structure);
+            body.append(row).append("\n");
+        }
+        return body.toString();
+    }
+
+    private String createRow(ExperimentPartSolution solution, CsvStructure structure) {
+        List<String> row = new ArrayList<>();
+
+        for (String k : structure.varKeys()) {
+            row.add(solution.getVariables().getOrDefault(k, ""));
+        }
+        for (String k : structure.objKeys()) {
+            row.add(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0)));
+        }
+        for (String k : structure.constKeys()) {
+            row.add(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0)));
+        }
+
+        return String.join(",", row);
+    }
+
+    private record CsvStructure(Set<String> varKeys, Set<String> objKeys, Set<String> constKeys) {}
 
     @Override
     @Transactional
