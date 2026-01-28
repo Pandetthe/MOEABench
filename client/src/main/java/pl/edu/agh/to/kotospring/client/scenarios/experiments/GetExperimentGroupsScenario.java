@@ -11,6 +11,7 @@ import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioBindings;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.AggregateTableColumn;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentGroupsResponse;
@@ -22,8 +23,14 @@ import java.util.List;
 @ScenarioComponent(name = "Get experiment groups", type = ScenarioType.EXPERIMENT_MENU)
 public class GetExperimentGroupsScenario extends Scenario {
 
+    private static final List<AggregateTableColumn> AGGREGATE_TABLE_COLUMNS = List.of(
+            new AggregateTableColumn("ID", 5),
+            new AggregateTableColumn("Group Name", 30)
+     );
+
     private final ExperimentClient experimentClient;
     private final ObjectProvider<ExperimentGroupOptionsScenario> experimentGroupOptionsScenarioProvider;
+
 
 
     public GetExperimentGroupsScenario(ExperimentClient experimentClient, ObjectProvider<ExperimentGroupOptionsScenario> experimentGroupOptionsScenarioProvider) {
@@ -37,8 +44,13 @@ public class GetExperimentGroupsScenario extends Scenario {
         try {
             GetExperimentGroupsResponse response = experimentClient.getExperimentGroups();
 
-            List<String> headers = List.of("ID", "Group Name");
-            List<Integer> widths = List.of(5, 30);
+            List<String> headers = AGGREGATE_TABLE_COLUMNS.stream()
+                    .map(AggregateTableColumn::header)
+                    .toList();
+
+            List<Integer> widths = AGGREGATE_TABLE_COLUMNS.stream()
+                    .map(AggregateTableColumn::width)
+                    .toList();
 
             List<List<String>> rows = new ArrayList<>();
 

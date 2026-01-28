@@ -20,8 +20,6 @@ import java.util.Map;
 @Scope("prototype")
 public class GetExperimentGroupAggregateScenario extends Scenario {
 
-    private final ExperimentClient client;
-    private long groupId;
     private static final int FIXED_COLUMNS_NUMBER = 4;
     private static final int MAX_COLUMNS_NUMBER = 5;
     private static final List<AggregateTableColumn> AGGREGATE_TABLE_COLUMNS = List.of(
@@ -34,6 +32,9 @@ public class GetExperimentGroupAggregateScenario extends Scenario {
             new AggregateTableColumn("Mean", 15),
             new AggregateTableColumn("Median", 15),
             new AggregateTableColumn("SD", 15));
+
+    private final ExperimentClient client;
+    private long groupId;
 
     public GetExperimentGroupAggregateScenario(ExperimentClient client) {
         this.client = client;

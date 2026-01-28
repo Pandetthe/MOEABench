@@ -7,6 +7,7 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.Scenario;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioComponent;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.ScenarioType;
+import pl.edu.agh.to.kotospring.client.views.AggregateTableColumn;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 
@@ -19,6 +20,11 @@ import java.util.List;
 
 @ScenarioComponent(name = "Get experiment group", type = ScenarioType.OTHER)
 public class GetExperimentGroupScenario extends Scenario {
+
+    private static final List<AggregateTableColumn> AGGREGATE_TABLE_COLUMNS = List.of(
+            new AggregateTableColumn("Experiment ID", 20),
+            new AggregateTableColumn("Run No", 10)
+    );
 
     private long groupId;
     private final ExperimentClient experimentClient;
@@ -40,8 +46,14 @@ public class GetExperimentGroupScenario extends Scenario {
             var group = experimentClient.getExperimentGroup(groupId);
             var runs = group.runs();
 
-            List<String> headers = List.of("Experiment ID", "Run No");
-            List<Integer> widths = List.of(20, 10);
+            List<String> headers = AGGREGATE_TABLE_COLUMNS.stream()
+                    .map(AggregateTableColumn::header)
+                    .toList();
+
+            List<Integer> widths = AGGREGATE_TABLE_COLUMNS.stream()
+                    .map(AggregateTableColumn::width)
+                    .toList();
+
             List<List<String>> rows = new ArrayList<>();
 
             for (var run : runs) {
