@@ -46,6 +46,11 @@ public class ExperimentPartExecution {
     @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private final Set<ExperimentPartSolution> solutions = new HashSet<>();
 
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "plot_image")
+    private byte[] plotImage;
+
     public ExperimentPartExecution() {
         this.status = ExperimentPartStatus.QUEUED;
     }
@@ -169,5 +174,13 @@ public class ExperimentPartExecution {
         if (this.solutions.remove(solution)) {
             solution.setExperimentPart(null);
         }
+    }
+
+    public byte[] getPlotImage() {
+        return plotImage;
+    }
+
+    public void setPlotImage(byte[] plotImage) {
+        this.plotImage = plotImage;
     }
 }

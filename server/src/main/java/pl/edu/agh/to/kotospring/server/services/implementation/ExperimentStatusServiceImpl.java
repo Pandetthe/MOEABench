@@ -91,10 +91,11 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsCompleted(Long partId, Indicators.IndicatorValues indicatorValues,
-            NondominatedPopulation result) {
+            NondominatedPopulation result, Optional<byte[]> plotImage) {
         ExperimentPartExecution part = getPartOrThrow(partId);
         processIndicators(part, indicatorValues);
         saveSolutions(part, result);
+        part.setPlotImage(plotImage.orElse(null));
         part.setStatus(ExperimentPartStatus.COMPLETED);
         part.setFinishedAt(OffsetDateTime.now());
         experimentPartExecutionRepository.saveAndFlush(part);

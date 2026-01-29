@@ -16,12 +16,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@ScenarioComponent(name = "Get experiment aggregate", type = ScenarioType.OTHER)
+@ScenarioComponent(name = "Get experiment group aggregate", type = ScenarioType.OTHER)
 @Scope("prototype")
-public class GetExperimentAggregateScenario extends Scenario {
+public class GetExperimentGroupAggregateScenario extends Scenario {
 
-    private final ExperimentClient client;
-    private long experimentId;
     private static final int FIXED_COLUMNS_NUMBER = 4;
     private static final int MAX_COLUMNS_NUMBER = 5;
     private static final List<AggregateTableColumn> AGGREGATE_TABLE_COLUMNS = List.of(
@@ -35,19 +33,29 @@ public class GetExperimentAggregateScenario extends Scenario {
             new AggregateTableColumn("Median", 15),
             new AggregateTableColumn("SD", 15));
 
-    public GetExperimentAggregateScenario(ExperimentClient client) {
+    private final ExperimentClient client;
+    private long groupId;
+
+    public GetExperimentGroupAggregateScenario(ExperimentClient client) {
         this.client = client;
     }
 
-    public void setExperimentId(long experimentId) {
-        this.experimentId = experimentId;
+    public void setGroupId(long groupId) {
+        this.groupId = groupId;
     }
 
     @Override
     public View build() {
         try {
-            GetExperimentAggregateResponse resp = client.getExperimentAggregate(experimentId);
+            GetExperimentAggregateResponse resp = client.getExperimentGroupAggregate(groupId);
             return buildAggregateView(resp);
+        } catch (org.springframework.web.reactive.function.client.WebClientRequestException e) {
+            return new SimpleMessageView("Connection Error", "Service unavailable. Could not connect to the server.");
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+            if (e.getStatusCode().is5xxServerError()) {
+                return new SimpleMessageView("Server Error", "Internal Server Error (" + e.getStatusCode() + "). Please try again later.");
+            }
+            return new SimpleMessageView("Error", "Server returned error: " + e.getStatusCode() + " for Group ID: " + groupId);
         } catch (Exception e) {
             return new SimpleMessageView("Error", "Could not fetch aggregate: "
                     + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
@@ -87,7 +95,7 @@ public class GetExperimentAggregateScenario extends Scenario {
                 .toList();
 
         SimpleTableView table = new SimpleTableView(headers, rows, widths);
-        table.setTitle("Aggregated Results for Experiment ID: " + experimentId);
+        table.setTitle("Aggregated Results for Experiment Group ID: " + groupId);
         table.setShowBorder(true);
         table.setEnableWrapping(false);
         if (AGGREGATE_TABLE_COLUMNS.size() > MAX_COLUMNS_NUMBER) {

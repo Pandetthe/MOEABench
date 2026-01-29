@@ -1,7 +1,13 @@
 package pl.edu.agh.to.kotospring.server.controllers;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.mappers.ExperimentMapper;
@@ -11,6 +17,8 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 import io.swagger.v3.oas.annotations.Operation;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
+import java.util.stream.Collectors;
 
 import java.time.OffsetDateTime;
 
@@ -62,15 +70,18 @@ public final class ExperimentController {
     }
 
     @GetMapping("runs")
-    public ResponseEntity<?> getExperimentRuns(
+    public ResponseEntity<GetExperimentRunsResponse> getExperimentRuns(
             @RequestParam(required = false) String algorithm,
             @RequestParam(required = false) String problem,
             @RequestParam(required = false) String indicator,
             @RequestParam(required = false) ExperimentRunStatus status,
             @RequestParam(required = false) OffsetDateTime startTime,
-            @RequestParam(required = false) OffsetDateTime endTime
-    ) {
-        var runs = experimentService.getExperimentRuns(algorithm, problem, indicator, status, startTime, endTime);
+            @RequestParam(required = false) OffsetDateTime endTime,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id.runNo"));
+        var runs = experimentService.getExperimentRuns(algorithm, problem, indicator, status, startTime, endTime,
+                pageable);
         return ResponseEntity.ok(experimentMapper.mapToGetExperimentRunsResponse(runs));
     }
 
@@ -95,6 +106,22 @@ public final class ExperimentController {
         return experimentService.getExperimentPart(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartResponse)
                 .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment part not found"));
+    }
+
+    @GetMapping(value = "{id}/runs/{runNo}/parts/{partId}/plot", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getExperimentPartPlot(
+            @PathVariable long id,
+            @PathVariable long runNo,
+            @PathVariable long partId) {
+        return experimentService.getExperimentPart(id, runNo, partId)
+                .map(part -> {
+                    byte[] plotImage = part.getPlotImage();
+                    if (plotImage == null) {
+                        throw new NotFoundException("Plot image not found for this part");
+                    }
+                    return ResponseEntity.ok(plotImage);
+                })
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 
@@ -172,6 +199,16 @@ public final class ExperimentController {
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
     }
 
+    @GetMapping(value = "{id}/runs/{runNo}/parts/{partId}/csv", produces = "text/csv")
+    public ResponseEntity<String> getExperimentPartCsv(
+            @PathVariable long id,
+            @PathVariable long runNo,
+            @PathVariable long partId) {
+        return experimentService.getExperimentPartCsv(id, runNo, partId)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment part not found"));
+    }
+
     @DeleteMapping("{id}")
     public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
         if (experimentService.deleteExperiment(id))
@@ -185,4 +222,58 @@ public final class ExperimentController {
             return ResponseEntity.noContent().build();
         throw new NotFoundException("Experiment run not found");
     }
+
+    @PostMapping("groups")
+    public ResponseEntity<?> createExperimentGroup(@RequestBody CreateExperimentGroupRequest request) {
+        ExperimentGroup group = experimentService.createExperimentGroup(request.name());
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @GetMapping("groups")
+    public ResponseEntity<?> getExperimentGroups() {
+        List<ExperimentGroup> groups = experimentService.getExperimentGroups();
+        return ResponseEntity.ok(groups.stream()
+                .map(experimentMapper::mapToGroupResponse)
+                .collect(Collectors.toList()));
+    }
+
+    @GetMapping("groups/{groupId}")
+    public ResponseEntity<?> getExperimentGroup(@PathVariable Long groupId) {
+        return experimentService.getExperimentGroup(groupId)
+                .map(experimentMapper::mapToGroupResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
+    }
+
+    @PostMapping("{id}/runs/{runNo}/groups/{groupId}")
+    public ResponseEntity<?> addRunToExperimentGroup(
+            @PathVariable Long groupId,
+            @PathVariable Long id,
+            @PathVariable Long runNo) {
+        ExperimentGroup group = experimentService.addRunToExperimentGroup(groupId, id, runNo);
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @DeleteMapping("groups/{groupId}")
+    public ResponseEntity<?> deleteExperimentGroup(@PathVariable Long groupId) {
+        if (experimentService.deleteExperimentGroup(groupId)) {
+            return ResponseEntity.noContent().build();
+        }
+        throw new NotFoundException("Experiment group not found");
+    }
+
+    @DeleteMapping("{id}/runs/{runNo}/groups/{groupId}")
+    public ResponseEntity<?> deleteRunFromExperimentGroup(
+            @PathVariable Long groupId,
+            @PathVariable Long id,
+            @PathVariable Long runNo) {
+        ExperimentGroup group = experimentService.deleteRunFromExperimentGroup(groupId, id, runNo);
+        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    }
+
+    @GetMapping("groups/{groupId}/aggregate")
+    public ResponseEntity<GetExperimentAggregateResponse> getExperimentGroupAggregate(@PathVariable Long groupId) {
+        return ResponseEntity.ok(experimentService.getExperimentGroupAggregate(groupId));
+    }
+
 }

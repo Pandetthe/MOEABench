@@ -1,7 +1,10 @@
 package pl.edu.agh.to.kotospring.server.services.interfaces;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentRun;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
+import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
@@ -21,8 +24,9 @@ public interface ExperimentService {
 
         Optional<Experiment> getExperiment(long id, ExperimentRunStatus status);
 
-        List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                          ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end);
+        Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+                        ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+                        Pageable pageable);
 
         Optional<ExperimentRun> getExperimentRun(
                         long id, long runNo, String algorithm, String problem,
@@ -47,4 +51,23 @@ public interface ExperimentService {
         boolean deleteExperimentRun(long id, long runNo);
 
         GetExperimentAggregateResponse getExperimentAggregate(long experimentId);
+
+        GetExperimentAggregateResponse getExperimentGroupAggregate(long groupId);
+
+        Optional<String> getExperimentPartCsv(long id, long runNo, long partId);
+
+        ExperimentGroup createExperimentGroup(String name);
+
+        List<ExperimentGroup> getExperimentGroups();
+
+        Optional<ExperimentGroup> getExperimentGroup(long groupId);
+
+        ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo);
+
+        boolean deleteExperimentGroup(long groupId);
+
+        ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo);
+
+
+
 }

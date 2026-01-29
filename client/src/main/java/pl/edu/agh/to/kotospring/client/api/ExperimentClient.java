@@ -1,8 +1,6 @@
 package pl.edu.agh.to.kotospring.client.api;
 
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.service.annotation.DeleteExchange;
 import org.springframework.web.service.annotation.GetExchange;
 import org.springframework.web.service.annotation.PostExchange;
@@ -12,6 +10,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 public interface ExperimentClient {
 
@@ -36,7 +35,9 @@ public interface ExperimentClient {
                         @RequestParam(required = false) String indicator,
                         @RequestParam(required = false) ExperimentRunStatus status,
                         @RequestParam(required = false) OffsetDateTime startTime,
-                        @RequestParam(required = false) OffsetDateTime endTime);
+                        @RequestParam(required = false) OffsetDateTime endTime,
+                        @RequestParam int page,
+                        @RequestParam int size);
 
         @GetExchange("/experiments/{id}/runs/{runNo}")
         GetExperimentRunResponse getExperimentRun(
@@ -81,6 +82,18 @@ public interface ExperimentClient {
                         @PathVariable("runNo") long runNo,
                         @PathVariable("partId") long partId);
 
+        @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/csv")
+        String getExperimentPartCsv(
+                        @PathVariable("id") long id,
+                        @PathVariable("runNo") long runNo,
+                        @PathVariable("partId") long partId);
+
+        @GetExchange("/experiments/{id}/runs/{runNo}/parts/{partId}/plot")
+        Optional<byte[]> getExperimentPartPlot(
+                        @PathVariable("id") long id,
+                        @PathVariable("runNo") long runNo,
+                        @PathVariable("partId") long partId);
+
         @GetExchange("/experiments/{id}/aggregate")
         GetExperimentAggregateResponse getExperimentAggregate(@PathVariable("id") long id);
 
@@ -92,4 +105,33 @@ public interface ExperimentClient {
 
         @DeleteExchange("/experiments/{id}/runs/{runNo}")
         void deleteExperimentRun(@PathVariable("id") long id, @PathVariable("runNo") long runNo);
-}
+
+        @PostExchange("/experiments/groups")
+        void createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
+
+        @GetExchange("/experiments/groups")
+        GetExperimentGroupsResponse getExperimentGroups();
+
+        @GetExchange("/experiments/groups/{groupId}")
+        GetExperimentGroupResponse getExperimentGroup(@PathVariable Long groupId);
+
+        @PostExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
+        void addRunToExperimentGroup(
+                @PathVariable Long groupId,
+                @PathVariable Long id,
+                @PathVariable Long runNo);
+
+        @DeleteExchange("/experiments/groups/{groupId}")
+        void deleteExperimentGroup(@PathVariable Long groupId);
+
+        @DeleteExchange("/experiments/{id}/runs/{runNo}/groups/{groupId}")
+        void deleteRunFromExperimentGroup(
+                @PathVariable Long groupId,
+                @PathVariable Long id,
+                @PathVariable Long runNo);
+
+        @GetExchange("/experiments/groups/{groupId}/aggregate")
+        GetExperimentAggregateResponse getExperimentGroupAggregate(@PathVariable("groupId") long id);
+
+    }
+

@@ -9,7 +9,6 @@ import pl.edu.agh.to.kotospring.client.api.ExperimentClient;
 import pl.edu.agh.to.kotospring.client.models.MenuOption;
 import pl.edu.agh.to.kotospring.client.scenarios.abstractions.*;
 import pl.edu.agh.to.kotospring.client.views.InputForm;
-import pl.edu.agh.to.kotospring.client.views.ResizingListView;
 import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
@@ -81,7 +80,6 @@ public class GetExperimentScenario extends Scenario {
 
             bindings.onCtrlKeyWhenFocused(tableView, 'f', this::openFilterForm);
             bindings.onOpenSelectedItem(tableView, MenuOption.class, this::handleRowSelection);
-
 
             return tableView;
 

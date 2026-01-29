@@ -1,12 +1,13 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
-import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.moeaframework.algorithm.Algorithm;
 import org.moeaframework.core.indicator.Indicators;
 import org.moeaframework.core.population.NondominatedPopulation;
 import org.moeaframework.problem.Problem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.models.GroupIndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.IndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
@@ -31,7 +33,6 @@ import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
 @Service
 public class ExperimentServiceImpl implements ExperimentService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentServiceImpl.class);
@@ -45,6 +46,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     private final ExperimentExecutionService executionService;
     private final ExperimentRepository experimentRepository;
     private final ExperimentAggregateRepository experimentAggregateRepository;
+    private final ExperimentGroupRepository experimentGroupRepository;
 
     public ExperimentServiceImpl(ProblemRegistryService problemRegistry,
             AlgorithmRegistryService algorithmRegistry,
@@ -54,7 +56,8 @@ public class ExperimentServiceImpl implements ExperimentService {
             ExperimentPartExecutionRepository experimentPartExecutionRepository,
             ExperimentExecutionService executionService,
             ExperimentRepository experimentRepository,
-            ExperimentAggregateRepository experimentAggregateRepository) {
+            ExperimentAggregateRepository experimentAggregateRepository,
+            ExperimentGroupRepository experimentGroupRepository) {
         this.problemRegistry = problemRegistry;
         this.algorithmRegistry = algorithmRegistry;
         this.indicatorRegistry = indicatorRegistry;
@@ -64,6 +67,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         this.executionService = executionService;
         this.experimentRepository = experimentRepository;
         this.experimentAggregateRepository = experimentAggregateRepository;
+        this.experimentGroupRepository = experimentGroupRepository;
     }
 
     @Override
@@ -180,7 +184,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem).orElseThrow();
         Indicators indicatorsObj = indicatorRegistry.getIndicators(partRequest.indicators(), problem, referenceSet);
 
-        return new QueueData(algorithm, indicatorsObj, definition.getBudget());
+        return new QueueData(algorithm, indicatorsObj, definition.getBudget(), referenceSet, problem);
     }
 
     @Override
@@ -205,9 +209,10 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
-                                                 ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end) {
-        return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end);
+    public Page<ExperimentRun> getExperimentRuns(String algorithm, String problem, String indicator,
+            ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
+            Pageable pageable) {
+        return experimentRunRepository.findAllFiltered(algorithm, problem, indicator, status, start, end, pageable);
     }
 
     @Override
@@ -355,7 +360,6 @@ public class ExperimentServiceImpl implements ExperimentService {
         });
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public GetExperimentAggregateResponse getExperimentAggregate(long experimentId) {
@@ -373,7 +377,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         Map<Long, Map<String, GetExperimentAggregateDataIndicator>> indicatorsByDefinition = new HashMap<>();
         for (IndicatorAggregateRow row : rows) {
             indicatorsByDefinition
-                    .computeIfAbsent(row.definitionId(), __ -> new HashMap<>())
+                    .computeIfAbsent(row.definitionId(), _ -> new HashMap<>())
                     .put(row.indicator(),
                             new GetExperimentAggregateDataIndicator(
                                     row.minValue(),
@@ -381,26 +385,236 @@ public class ExperimentServiceImpl implements ExperimentService {
                                     row.meanValue(),
                                     row.medianValue(),
                                     row.iqrValue(),
-                                    row.stddevValue()
-                            ));
+                                    row.stddevValue()));
         }
         List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
         for (ExperimentPart definition : definitions) {
             Map<String, String> params = definition.getParameters().stream()
                     .collect(Collectors.toMap(
                             ExperimentPartAlgorithmParameter::getKey,
-                            ExperimentPartAlgorithmParameter::getValue
-                    ));
+                            ExperimentPartAlgorithmParameter::getValue));
 
             aggregateDataList.add(new GetExperimentAggregateData(
                     definition.getAlgorithm(),
                     params,
                     definition.getProblem(),
                     indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
-                    definition.getBudget()
-            ));
+                    definition.getBudget()));
         }
 
         return new GetExperimentAggregateResponse(aggregateDataList);
     }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetExperimentAggregateResponse getExperimentGroupAggregate(long groupId) {
+        ExperimentGroup group = getGroupOrThrow(groupId);
+        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> indicatorsStructure =
+                fetchAndStructureIndicators(groupId);
+        List<GetExperimentAggregateData> responseList =
+                buildAggregateDataList(indicatorsStructure, group);
+
+        return new GetExperimentAggregateResponse(responseList);
+    }
+
+    private ExperimentGroup getGroupOrThrow(long groupId) {
+        return experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("Experiment group not found"));
+    }
+
+    private Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> fetchAndStructureIndicators(long groupId) {
+        List<Object[]> rawRows = experimentAggregateRepository.findIndicatorAggregatesByExperimentGroupId(groupId);
+        Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> structure = new HashMap<>();
+        for (Object[] rawRow : rawRows) {
+            GroupIndicatorAggregateRow row = GroupIndicatorAggregateRow.fromNativeRow(rawRow);
+            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = structure.computeIfAbsent(row.algorithm(), k -> new HashMap<>());
+
+            Map<String, GetExperimentAggregateDataIndicator> indicatorsMap = problemsMap.computeIfAbsent(row.problem(), k -> new HashMap<>());
+
+            indicatorsMap.put(row.indicator(), new GetExperimentAggregateDataIndicator(
+                    row.minValue(), row.maxValue(), row.meanValue(),
+                    row.medianValue(), row.iqrValue(), row.stddevValue()
+            ));
+        }
+
+        return structure;
+    }
+
+    private List<GetExperimentAggregateData> buildAggregateDataList(
+            Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> structure,
+            ExperimentGroup group) {
+
+        List<GetExperimentAggregateData> result = new ArrayList<>();
+        for (Map.Entry<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> algoEntry : structure.entrySet()) {
+            String algorithm = algoEntry.getKey();
+            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = algoEntry.getValue();
+
+            for (Map.Entry<String, Map<String, GetExperimentAggregateDataIndicator>> problemEntry : problemsMap.entrySet()) {
+                String problem = problemEntry.getKey();
+                Map<String, GetExperimentAggregateDataIndicator> indicators = problemEntry.getValue();
+                ExperimentPartMetadata metadata = findMetadataFor(group, algorithm, problem);
+                result.add(new GetExperimentAggregateData(
+                        algorithm,
+                        metadata.params,
+                        problem,
+                        indicators,
+                        metadata.budget
+                ));
+            }
+        }
+
+        return result;
+    }
+
+    private static class ExperimentPartMetadata {
+        int budget = 0;
+        Map<String, String> params = Collections.emptyMap();
+    }
+
+    private ExperimentPartMetadata findMetadataFor(ExperimentGroup group, String algorithm, String problem) {
+        ExperimentPartMetadata metadata = new ExperimentPartMetadata();
+        if (group.getRuns() == null || group.getRuns().isEmpty()) {
+            return metadata;
+        }
+        ExperimentRun representativeRun = group.getRuns().iterator().next();
+
+        for (ExperimentPartExecution epe : representativeRun.getParts()) {
+            ExperimentPart part = epe.getExperimentPart();
+            if (part.getAlgorithm().equals(algorithm) && part.getProblem().equals(problem)) {
+                metadata.budget = part.getBudget();
+                metadata.params = new HashMap<>();
+                for (ExperimentPartAlgorithmParameter param : part.getParameters()) {
+                    metadata.params.put(param.getKey(), param.getValue());
+                }
+                break;
+            }
+        }
+
+        return metadata;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> getExperimentPartCsv(long id, long runNo, long partId) {
+        return getExperimentPartResult(id, runNo, partId).map(part -> {
+            Set<ExperimentPartSolution> solutions = part.getSolutions();
+            if (solutions.isEmpty()) {
+                return "";
+            }
+
+            CsvStructure structure = extractCsvStructure(solutions);
+            StringBuilder csv = new StringBuilder();
+            csv.append(createHeader(structure)).append("\n");
+            csv.append(createBody(solutions, structure));
+
+            return csv.toString();
+        });
+    }
+
+    private CsvStructure extractCsvStructure(Set<ExperimentPartSolution> solutions) {
+        TreeSet<String> varKeys = new TreeSet<>();
+        TreeSet<String> objKeys = new TreeSet<>();
+        TreeSet<String> constKeys = new TreeSet<>();
+
+        for (ExperimentPartSolution solution : solutions) {
+            varKeys.addAll(solution.getVariables().keySet());
+            objKeys.addAll(solution.getObjectives().keySet());
+            constKeys.addAll(solution.getConstraints().keySet());
+        }
+        return new CsvStructure(varKeys, objKeys, constKeys);
+    }
+
+    private String createHeader(CsvStructure structure) {
+        List<String> header = new ArrayList<>();
+        structure.varKeys().forEach(k -> header.add("Var:" + k));
+        structure.objKeys().forEach(k -> header.add("Obj:" + k));
+        structure.constKeys().forEach(k -> header.add("Const:" + k));
+        return String.join(",", header);
+    }
+
+    private String createBody(Set<ExperimentPartSolution> solutions, CsvStructure structure) {
+        StringBuilder body = new StringBuilder();
+        for (ExperimentPartSolution solution : solutions) {
+            String row = createRow(solution, structure);
+            body.append(row).append("\n");
+        }
+        return body.toString();
+    }
+
+    private String createRow(ExperimentPartSolution solution, CsvStructure structure) {
+        List<String> row = new ArrayList<>();
+
+        for (String k : structure.varKeys()) {
+            row.add(solution.getVariables().getOrDefault(k, ""));
+        }
+        for (String k : structure.objKeys()) {
+            row.add(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0)));
+        }
+        for (String k : structure.constKeys()) {
+            row.add(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0)));
+        }
+
+        return String.join(",", row);
+    }
+
+    private record CsvStructure(Set<String> varKeys, Set<String> objKeys, Set<String> constKeys) {}
+
+    @Override
+    @Transactional
+    public ExperimentGroup createExperimentGroup(String name) {
+        ExperimentGroup group = new ExperimentGroup(name);
+        return experimentGroupRepository.save(group);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExperimentGroup> getExperimentGroups() {
+        return experimentGroupRepository.findAll();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ExperimentGroup> getExperimentGroup(long groupId) {
+        return experimentGroupRepository.findById(groupId);
+    }
+
+    @Override
+    @Transactional
+    public ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo) {
+        ExperimentGroup group = experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
+
+        ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
+                .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
+
+        group.addRun(run);
+        return experimentGroupRepository.save(group);
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteExperimentGroup(long groupId) {
+        if (experimentGroupRepository.existsById(groupId)) {
+            experimentGroupRepository.deleteById(groupId);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional
+    public ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo) {
+        ExperimentGroup group = experimentGroupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
+
+        ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
+                .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
+
+        if (!group.removeRun(run)) {
+            throw new NotFoundException("Run " + runNo + " of experiment " + id + " is not part of group " + groupId);
+        }
+        return experimentGroupRepository.save(group);
+    }
+
 }
