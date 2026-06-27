@@ -27,4 +27,6 @@ jobs:
           restore-keys: ${{ runner.os }}-maven-
 
       - name: Run tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
         run: ./mvnw test
