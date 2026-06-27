@@ -33,7 +33,7 @@ The system supports configuring and executing multi-objective optimization algor
 
 ## Running
 
-The easiest way to run the server is via Docker Compose — no Java or PostgreSQL installation required:
+The easiest way to run the server is via Docker Compose - no Java or PostgreSQL installation required:
 
 ```bash
 docker compose up
@@ -49,7 +49,7 @@ docker run -e DATABASE_URL=jdbc:postgresql://<host>:<port>/<db>?user=<user>&pass
   ghcr.io/pandetthe/moeabench/server:latest
 ```
 
-The client (TUI) is a native binary — see [Releases](https://github.com/pandetthe/MOEABench/releases) for pre-built binaries for Linux, macOS, and Windows.
+The client (TUI) is a native binary - see [Releases](https://github.com/pandetthe/MOEABench/releases) for pre-built binaries for Linux, macOS, and Windows.
 
 The server REST API is available with Swagger UI at `http://localhost:8080/swagger-ui.html`.
 
