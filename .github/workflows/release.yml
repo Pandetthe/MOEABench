@@ -41,8 +41,11 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-maven-
 
+      - name: Install shared module
+        run: ${{ matrix.mvnw }} install -pl shared -DskipTests -q
+
       - name: Build native executable
-        run: ${{ matrix.mvnw }} -Pnative native:compile -pl client -am -DskipTests
+        run: ${{ matrix.mvnw }} -Pnative native:compile -pl client -DskipTests
 
       - name: Rename binary (Linux, macOS)
         if: runner.os != 'Windows'
@@ -79,7 +82,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/server
+          images: ghcr.io/${{ github.repository_owner }}/moeabench-server
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
