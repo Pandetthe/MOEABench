@@ -431,7 +431,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional(readOnly = true)
     public Optional<String> getExperimentPartCsv(long id, long runNo, long partId) {
-        return getExperimentPartResult(id, runNo, partId).map(part -> {
+        return experimentPartExecutionRepository.findWithFullSolutionById(new RunId(id, runNo), partId).map(part -> {
             Set<ExperimentPartSolution> solutions = part.getSolutions();
             if (solutions.isEmpty()) {
                 return "";

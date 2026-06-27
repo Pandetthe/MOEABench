@@ -28,6 +28,9 @@ public class ExperimentPart {
     @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<ExperimentPartAlgorithmParameter> parameters = new HashSet<>();
 
+    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.REMOVE)
+    private final Set<ExperimentPartExecution> executions = new HashSet<>();
+
     public ExperimentPart() {
     }
 
