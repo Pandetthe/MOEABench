@@ -191,10 +191,12 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional(readOnly = true)
     public Optional<Experiment> getExperiment(long id, ExperimentRunStatus status) {
         logger.debug("Fetching details for experiment ID {}", id);
-        if (status == null) {
-            return experimentRepository.findWithRunsById(id);
-        }
-        return experimentRepository.findWithRunsByIdAndStatus(id, status);
+        return experimentRepository.findWithRunsById(id).map(experiment -> {
+            if (status != null) {
+                experiment.getRuns().removeIf(run -> run.getStatus() != status);
+            }
+            return experiment;
+        });
     }
 
     @Override
