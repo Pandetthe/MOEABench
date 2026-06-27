@@ -11,29 +11,23 @@ import pl.edu.agh.to.kotospring.client.properties.ServerClientProperties;
 
 @Configuration
 public class ApiConfiguration {
-        @Bean
-        public ExperimentClient experimentClient(WebClient.Builder webClientBuilder,
-                        ServerClientProperties props) {
-                WebClient webClient = webClientBuilder
-                                .baseUrl(props.getBaseUrl())
-                                .build();
 
-                WebClientAdapter adapter = WebClientAdapter.create(webClient);
-                HttpServiceProxyFactory factory = HttpServiceProxyFactory.builderFor(adapter)
-                                .build();
-                return factory.createClient(ExperimentClient.class);
-        }
+    @Bean
+    public HttpServiceProxyFactory httpServiceProxyFactory(WebClient.Builder webClientBuilder,
+            ServerClientProperties props) {
+        WebClient webClient = webClientBuilder
+                .baseUrl(props.getBaseUrl())
+                .build();
+        return HttpServiceProxyFactory.builderFor(WebClientAdapter.create(webClient)).build();
+    }
 
-        @Bean
-        public RegistryClient registryClient(WebClient.Builder webClientBuilder,
-                        ServerClientProperties props) {
-                WebClient webClient = webClientBuilder
-                                .baseUrl(props.getBaseUrl())
-                                .build();
+    @Bean
+    public ExperimentClient experimentClient(HttpServiceProxyFactory factory) {
+        return factory.createClient(ExperimentClient.class);
+    }
 
-                WebClientAdapter adapter = WebClientAdapter.create(webClient);
-                HttpServiceProxyFactory factory = HttpServiceProxyFactory.builderFor(adapter)
-                                .build();
-                return factory.createClient(RegistryClient.class);
-        }
+    @Bean
+    public RegistryClient registryClient(HttpServiceProxyFactory factory) {
+        return factory.createClient(RegistryClient.class);
+    }
 }

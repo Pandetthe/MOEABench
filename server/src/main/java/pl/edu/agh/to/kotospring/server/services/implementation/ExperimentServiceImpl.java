@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -17,6 +16,7 @@ import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
+import pl.edu.agh.to.kotospring.server.models.ExperimentRunView;
 import pl.edu.agh.to.kotospring.server.models.GroupIndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.IndicatorAggregateRow;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
@@ -78,25 +78,25 @@ public class ExperimentServiceImpl implements ExperimentService {
         Experiment experiment = new Experiment(OffsetDateTime.now(), request.runCount());
         experimentRepository.saveAndFlush(experiment);
 
-        List<Pair<ExperimentPart, CreateExperimentRequestData>> definitions = request.parts().stream()
+        List<ExperimentPartWithRequest> definitions = request.parts().stream()
                 .map(this::createExperimentPartDefinition)
                 .toList();
 
-        definitions.forEach(pair -> experiment.addPart(pair.getFirst()));
-        experimentPartRepository.saveAllAndFlush(definitions.stream().map(Pair::getFirst).toList());
+        definitions.forEach(pair -> experiment.addPart(pair.part()));
+        experimentPartRepository.saveAll(definitions.stream().map(ExperimentPartWithRequest::part).toList());
 
         List<QueueData> dataToQueue = new ArrayList<>();
 
         try {
             for (long run = 1; run <= request.runCount(); run++) {
                 ExperimentRun experimentRun = new ExperimentRun(experiment, run);
-                experimentRunRepository.saveAndFlush(experimentRun);
+                experimentRunRepository.save(experimentRun);
 
                 List<ExperimentPartExecution> runExecutions = new ArrayList<>();
 
-                for (Pair<ExperimentPart, CreateExperimentRequestData> pair : definitions) {
-                    ExperimentPart definition = pair.getFirst();
-                    CreateExperimentRequestData requestData = pair.getSecond();
+                for (ExperimentPartWithRequest pair : definitions) {
+                    ExperimentPart definition = pair.part();
+                    CreateExperimentRequestData requestData = pair.requestData();
 
                     ExperimentPartExecution execution = new ExperimentPartExecution(definition);
                     experimentRun.addPart(execution);
@@ -109,29 +109,24 @@ public class ExperimentServiceImpl implements ExperimentService {
                     runExecutions.add(execution);
                 }
 
-                experimentPartExecutionRepository.saveAllAndFlush(runExecutions);
+                experimentPartExecutionRepository.saveAll(runExecutions);
+                experimentPartExecutionRepository.flush();
 
                 for (int i = 0; i < definitions.size(); i++) {
-                    ExperimentPart definition = definitions.get(i).getFirst();
-                    CreateExperimentRequestData requestData = definitions.get(i).getSecond();
+                    ExperimentPartWithRequest pair = definitions.get(i);
                     ExperimentPartExecution execution = runExecutions.get(i);
-
-                    QueueData queueData = createQueueData(requestData, definition);
-                    queueData.setExperimentPartId(execution.getId());
-                    dataToQueue.add(queueData);
+                    dataToQueue.add(createQueueData(pair.requestData(), pair.part(), execution.getId()));
                 }
 
                 logger.info("Successfully created and queued new experiment run number {} for experiment {}",
-                        experimentRun.getRunNo(), experimentRun.getExperimentId());
+                        experimentRun.getRunNo(), experiment.getId());
             }
 
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
                     logger.info("Transaction committed. Sending {} tasks to queue.", dataToQueue.size());
-                    for (QueueData data : dataToQueue) {
-                        executionService.enqueue(data);
-                    }
+                    dataToQueue.forEach(executionService::enqueue);
                 }
             });
 
@@ -144,8 +139,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         }
     }
 
-    private Pair<ExperimentPart, CreateExperimentRequestData> createExperimentPartDefinition(
-            CreateExperimentRequestData partRequest) {
+    private ExperimentPartWithRequest createExperimentPartDefinition(CreateExperimentRequestData partRequest) {
         logger.debug("Preparing ExperimentPart Definition: Problem={}, Algorithm={}", partRequest.problem(),
                 partRequest.algorithm());
 
@@ -159,33 +153,29 @@ public class ExperimentServiceImpl implements ExperimentService {
         algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem)
                 .orElseThrow(() -> new AlgorithmNotFoundException(algorithmName));
 
-        ExperimentPart experimentPart = new ExperimentPart(
-                problemName,
-                algorithmName,
-                partRequest.budget());
+        ExperimentPart experimentPart = new ExperimentPart(problemName, algorithmName, partRequest.budget());
         for (String key : algorithmParameters.keySet()) {
             String value = algorithmParameters.getString(key);
-            ExperimentPartAlgorithmParameter parameterEntity = new ExperimentPartAlgorithmParameter(key, value);
-            experimentPart.addParameter(parameterEntity);
+            experimentPart.addParameter(new ExperimentPartAlgorithmParameter(key, value));
         }
         algorithmParameters.clearAccessedProperties();
 
-        return Pair.of(experimentPart, partRequest);
+        return new ExperimentPartWithRequest(experimentPart, partRequest);
     }
 
-    private QueueData createQueueData(CreateExperimentRequestData partRequest, ExperimentPart definition) {
+    private QueueData createQueueData(CreateExperimentRequestData partRequest, ExperimentPart definition,
+            Long experimentPartId) {
         String problemName = definition.getProblem();
         String algorithmName = definition.getAlgorithm();
         Problem problem = problemRegistry.getProblem(problemName).orElseThrow();
         NondominatedPopulation referenceSet = problemRegistry.getReferenceSet(problemName).orElseThrow();
-
         var algorithmParameters = algorithmRegistry.createTypedProperties(partRequest.algorithmParameters());
-
         Algorithm algorithm = algorithmRegistry.getAlgorithm(algorithmName, algorithmParameters, problem).orElseThrow();
         Indicators indicatorsObj = indicatorRegistry.getIndicators(partRequest.indicators(), problem, referenceSet);
-
-        return new QueueData(algorithm, indicatorsObj, definition.getBudget(), referenceSet, problem);
+        return new QueueData(experimentPartId, algorithm, indicatorsObj, definition.getBudget(), referenceSet, problem);
     }
+
+    private record ExperimentPartWithRequest(ExperimentPart part, CreateExperimentRequestData requestData) {}
 
     @Override
     @Transactional(readOnly = true)
@@ -198,13 +188,10 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional(readOnly = true)
     public Optional<Experiment> getExperiment(long id, ExperimentRunStatus status) {
         logger.debug("Fetching details for experiment ID {}", id);
-        return experimentRepository.findWithRunsById(id)
-                .map(exp -> {
-                    if (status == null)
-                        return exp;
-                    exp.getRuns().removeIf(run -> run.getStatus() != status);
-                    return exp;
-                });
+        if (status == null) {
+            return experimentRepository.findWithRunsById(id);
+        }
+        return experimentRepository.findWithRunsByIdAndStatus(id, status);
     }
 
     @Override
@@ -217,25 +204,15 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<ExperimentRun> getExperimentRun(
+    public Optional<ExperimentRunView> getExperimentRun(
             long id, long runNo, String algorithm, String problem,
             String indicator, ExperimentPartStatus partStatus) {
 
         RunId runId = new RunId(id, runNo);
-        if (!experimentRunRepository.existsById(runId)) {
-            return Optional.empty();
-        }
-
-        List<ExperimentPartExecution> filteredParts = experimentPartExecutionRepository.findFilteredParts(
-                runId, algorithm, problem, partStatus, indicator);
-
         return experimentRunRepository.findById(runId).map(run -> {
-            ExperimentRun viewRun = new ExperimentRun();
-            viewRun.setStatus(run.getStatus());
-            viewRun.setStartedAt(run.getStartedAt());
-            viewRun.setFinishedAt(run.getFinishedAt());
-            filteredParts.forEach(viewRun::addPart);
-            return viewRun;
+            List<ExperimentPartExecution> filteredParts = experimentPartExecutionRepository.findFilteredParts(
+                    runId, algorithm, problem, partStatus, indicator);
+            return new ExperimentRunView(run.getStatus(), run.getStartedAt(), run.getFinishedAt(), filteredParts);
         });
     }
 
@@ -290,26 +267,10 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional
     public boolean deleteExperiment(long id) {
         logger.debug("Attempting to delete experiment ID {}", id);
-
         return experimentRepository.findById(id).map(experiment -> {
-
-            for (ExperimentRun run : experiment.getRuns()) {
-                var executions = experimentPartExecutionRepository.findAllByExperimentRunId(run.getId());
-                if (!executions.isEmpty()) {
-                    experimentPartExecutionRepository.deleteAll(executions);
-                }
-            }
-
-            experiment.getRuns().clear();
-            experimentRepository.save(experiment);
-
-            experiment.getParts().clear();
-            experimentRepository.save(experiment);
-
             experimentRepository.delete(experiment);
             logger.info("Experiment ID {} deleted successfully", id);
             return true;
-
         }).orElseGet(() -> {
             logger.info("Failed to delete experiment ID {}: Not found", id);
             return false;
@@ -320,40 +281,25 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional
     public boolean deleteExperimentRun(long id, long runNo) {
         logger.debug("Attempting to delete experiment ID {} run {}", id, runNo);
-
         return experimentRepository.findWithRunsById(id).map(experiment -> {
             Optional<ExperimentRun> runToDelete = experiment.getRuns().stream()
                     .filter(r -> r.getRunNo().equals(runNo))
                     .findFirst();
 
-            if (runToDelete.isPresent()) {
-                ExperimentRun run = runToDelete.get();
-
-                var executions = experimentPartExecutionRepository.findAllByExperimentRunId(run.getId());
-                if (!executions.isEmpty()) {
-                    experimentPartExecutionRepository.deleteAll(executions);
-                }
-
-                experiment.removeRun(run);
-
-                if (experiment.getRuns().isEmpty()) {
-                    logger.info("Deleting experiment ID {} because last run was removed", id);
-
-                    experiment.getRuns().clear();
-                    experimentRepository.save(experiment);
-
-                    experiment.getParts().clear();
-                    experimentRepository.save(experiment);
-
-                    experimentRepository.delete(experiment);
-                } else {
-                    experimentRepository.save(experiment);
-                    logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
-                }
-                return true;
+            if (runToDelete.isEmpty()) {
+                return false;
             }
 
-            return false;
+            ExperimentRun run = runToDelete.get();
+            if (experiment.getRuns().size() == 1) {
+                logger.info("Deleting experiment ID {} because last run was removed", id);
+                experimentRepository.delete(experiment);
+            } else {
+                experiment.removeRun(run);
+                experimentRepository.save(experiment);
+                logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
+            }
+            return true;
         }).orElseGet(() -> {
             logger.info("Failed to delete experiment ID {} run {}: Experiment not found", id, runNo);
             return false;
@@ -380,31 +326,27 @@ public class ExperimentServiceImpl implements ExperimentService {
                     .computeIfAbsent(row.definitionId(), _ -> new HashMap<>())
                     .put(row.indicator(),
                             new GetExperimentAggregateDataIndicator(
-                                    row.minValue(),
-                                    row.maxValue(),
-                                    row.meanValue(),
-                                    row.medianValue(),
-                                    row.iqrValue(),
-                                    row.stddevValue()));
+                                    row.minValue(), row.maxValue(), row.meanValue(),
+                                    row.medianValue(), row.iqrValue(), row.stddevValue()));
         }
-        List<GetExperimentAggregateData> aggregateDataList = new ArrayList<>();
-        for (ExperimentPart definition : definitions) {
-            Map<String, String> params = definition.getParameters().stream()
-                    .collect(Collectors.toMap(
-                            ExperimentPartAlgorithmParameter::getKey,
-                            ExperimentPartAlgorithmParameter::getValue));
 
-            aggregateDataList.add(new GetExperimentAggregateData(
-                    definition.getAlgorithm(),
-                    params,
-                    definition.getProblem(),
-                    indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
-                    definition.getBudget()));
-        }
+        List<GetExperimentAggregateData> aggregateDataList = definitions.stream()
+                .map(definition -> {
+                    Map<String, String> params = definition.getParameters().stream()
+                            .collect(Collectors.toMap(
+                                    ExperimentPartAlgorithmParameter::getKey,
+                                    ExperimentPartAlgorithmParameter::getValue));
+                    return new GetExperimentAggregateData(
+                            definition.getAlgorithm(),
+                            params,
+                            definition.getProblem(),
+                            indicatorsByDefinition.getOrDefault(definition.getId(), Collections.emptyMap()),
+                            definition.getBudget());
+                })
+                .toList();
 
         return new GetExperimentAggregateResponse(aggregateDataList);
     }
-
 
     @Override
     @Transactional(readOnly = true)
@@ -412,9 +354,7 @@ public class ExperimentServiceImpl implements ExperimentService {
         ExperimentGroup group = getGroupOrThrow(groupId);
         Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> indicatorsStructure =
                 fetchAndStructureIndicators(groupId);
-        List<GetExperimentAggregateData> responseList =
-                buildAggregateDataList(indicatorsStructure, group);
-
+        List<GetExperimentAggregateData> responseList = buildAggregateDataList(indicatorsStructure, group);
         return new GetExperimentAggregateResponse(responseList);
     }
 
@@ -428,16 +368,12 @@ public class ExperimentServiceImpl implements ExperimentService {
         Map<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> structure = new HashMap<>();
         for (Object[] rawRow : rawRows) {
             GroupIndicatorAggregateRow row = GroupIndicatorAggregateRow.fromNativeRow(rawRow);
-            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = structure.computeIfAbsent(row.algorithm(), k -> new HashMap<>());
-
-            Map<String, GetExperimentAggregateDataIndicator> indicatorsMap = problemsMap.computeIfAbsent(row.problem(), k -> new HashMap<>());
-
-            indicatorsMap.put(row.indicator(), new GetExperimentAggregateDataIndicator(
-                    row.minValue(), row.maxValue(), row.meanValue(),
-                    row.medianValue(), row.iqrValue(), row.stddevValue()
-            ));
+            structure.computeIfAbsent(row.algorithm(), k -> new HashMap<>())
+                    .computeIfAbsent(row.problem(), k -> new HashMap<>())
+                    .put(row.indicator(), new GetExperimentAggregateDataIndicator(
+                            row.minValue(), row.maxValue(), row.meanValue(),
+                            row.medianValue(), row.iqrValue(), row.stddevValue()));
         }
-
         return structure;
     }
 
@@ -448,22 +384,13 @@ public class ExperimentServiceImpl implements ExperimentService {
         List<GetExperimentAggregateData> result = new ArrayList<>();
         for (Map.Entry<String, Map<String, Map<String, GetExperimentAggregateDataIndicator>>> algoEntry : structure.entrySet()) {
             String algorithm = algoEntry.getKey();
-            Map<String, Map<String, GetExperimentAggregateDataIndicator>> problemsMap = algoEntry.getValue();
-
-            for (Map.Entry<String, Map<String, GetExperimentAggregateDataIndicator>> problemEntry : problemsMap.entrySet()) {
+            for (Map.Entry<String, Map<String, GetExperimentAggregateDataIndicator>> problemEntry : algoEntry.getValue().entrySet()) {
                 String problem = problemEntry.getKey();
-                Map<String, GetExperimentAggregateDataIndicator> indicators = problemEntry.getValue();
                 ExperimentPartMetadata metadata = findMetadataFor(group, algorithm, problem);
                 result.add(new GetExperimentAggregateData(
-                        algorithm,
-                        metadata.params,
-                        problem,
-                        indicators,
-                        metadata.budget
-                ));
+                        algorithm, metadata.params, problem, problemEntry.getValue(), metadata.budget));
             }
         }
-
         return result;
     }
 
@@ -474,11 +401,10 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     private ExperimentPartMetadata findMetadataFor(ExperimentGroup group, String algorithm, String problem) {
         ExperimentPartMetadata metadata = new ExperimentPartMetadata();
-        if (group.getRuns() == null || group.getRuns().isEmpty()) {
+        if (group.getRuns().isEmpty()) {
             return metadata;
         }
         ExperimentRun representativeRun = group.getRuns().iterator().next();
-
         for (ExperimentPartExecution epe : representativeRun.getParts()) {
             ExperimentPart part = epe.getExperimentPart();
             if (part.getAlgorithm().equals(algorithm) && part.getProblem().equals(problem)) {
@@ -490,7 +416,6 @@ public class ExperimentServiceImpl implements ExperimentService {
                 break;
             }
         }
-
         return metadata;
     }
 
@@ -502,13 +427,8 @@ public class ExperimentServiceImpl implements ExperimentService {
             if (solutions.isEmpty()) {
                 return "";
             }
-
             CsvStructure structure = extractCsvStructure(solutions);
-            StringBuilder csv = new StringBuilder();
-            csv.append(createHeader(structure)).append("\n");
-            csv.append(createBody(solutions, structure));
-
-            return csv.toString();
+            return createHeader(structure) + "\n" + createBody(solutions, structure);
         });
     }
 
@@ -516,7 +436,6 @@ public class ExperimentServiceImpl implements ExperimentService {
         TreeSet<String> varKeys = new TreeSet<>();
         TreeSet<String> objKeys = new TreeSet<>();
         TreeSet<String> constKeys = new TreeSet<>();
-
         for (ExperimentPartSolution solution : solutions) {
             varKeys.addAll(solution.getVariables().keySet());
             objKeys.addAll(solution.getObjectives().keySet());
@@ -527,35 +446,40 @@ public class ExperimentServiceImpl implements ExperimentService {
 
     private String createHeader(CsvStructure structure) {
         List<String> header = new ArrayList<>();
-        structure.varKeys().forEach(k -> header.add("Var:" + k));
-        structure.objKeys().forEach(k -> header.add("Obj:" + k));
-        structure.constKeys().forEach(k -> header.add("Const:" + k));
+        structure.varKeys().forEach(k -> header.add("Var:" + escapeCsv(k)));
+        structure.objKeys().forEach(k -> header.add("Obj:" + escapeCsv(k)));
+        structure.constKeys().forEach(k -> header.add("Const:" + escapeCsv(k)));
         return String.join(",", header);
     }
 
     private String createBody(Set<ExperimentPartSolution> solutions, CsvStructure structure) {
         StringBuilder body = new StringBuilder();
         for (ExperimentPartSolution solution : solutions) {
-            String row = createRow(solution, structure);
-            body.append(row).append("\n");
+            body.append(createRow(solution, structure)).append("\n");
         }
         return body.toString();
     }
 
     private String createRow(ExperimentPartSolution solution, CsvStructure structure) {
         List<String> row = new ArrayList<>();
-
         for (String k : structure.varKeys()) {
-            row.add(solution.getVariables().getOrDefault(k, ""));
+            row.add(escapeCsv(solution.getVariables().getOrDefault(k, "")));
         }
         for (String k : structure.objKeys()) {
-            row.add(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0)));
+            row.add(escapeCsv(String.valueOf(solution.getObjectives().getOrDefault(k, 0.0))));
         }
         for (String k : structure.constKeys()) {
-            row.add(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0)));
+            row.add(escapeCsv(String.valueOf(solution.getConstraints().getOrDefault(k, 0.0))));
         }
-
         return String.join(",", row);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private record CsvStructure(Set<String> varKeys, Set<String> objKeys, Set<String> constKeys) {}
@@ -563,8 +487,7 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Override
     @Transactional
     public ExperimentGroup createExperimentGroup(String name) {
-        ExperimentGroup group = new ExperimentGroup(name);
-        return experimentGroupRepository.save(group);
+        return experimentGroupRepository.save(new ExperimentGroup(name));
     }
 
     @Override
@@ -584,10 +507,8 @@ public class ExperimentServiceImpl implements ExperimentService {
     public ExperimentGroup addRunToExperimentGroup(Long groupId, Long id, Long runNo) {
         ExperimentGroup group = experimentGroupRepository.findById(groupId)
                 .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
-
         ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
                 .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
-
         group.addRun(run);
         return experimentGroupRepository.save(group);
     }
@@ -607,14 +528,11 @@ public class ExperimentServiceImpl implements ExperimentService {
     public ExperimentGroup deleteRunFromExperimentGroup(Long groupId, Long id, Long runNo) {
         ExperimentGroup group = experimentGroupRepository.findById(groupId)
                 .orElseThrow(() -> new NotFoundException("ExperimentGroup not found"));
-
         ExperimentRun run = experimentRunRepository.findById(new RunId(id, runNo))
                 .orElseThrow(() -> new NotFoundException("ExperimentRun not found"));
-
         if (!group.removeRun(run)) {
             throw new NotFoundException("Run " + runNo + " of experiment " + id + " is not part of group " + groupId);
         }
         return experimentGroupRepository.save(group);
     }
-
 }

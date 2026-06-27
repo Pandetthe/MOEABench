@@ -40,7 +40,7 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
     @Override
     @Async("experimentExecutor")
     public void enqueue(QueueData queueData) {
-        Long partId = queueData.getExperimentPartId();
+        Long partId = queueData.experimentPartId();
         logger.info("Execution starting for ExperimentPart {}", partId);
 
         if (!experimentPartExecutionRepository.existsById(partId)) {
@@ -51,14 +51,14 @@ public class ExperimentExecutionServiceImpl implements ExperimentExecutionServic
         try {
             experimentStatusService.markPartAsStarted(partId);
 
-            Algorithm algorithm = queueData.getAlgorithm();
-            int budget = queueData.getBudget();
-            Indicators indicators = queueData.getIndicators();
+            Algorithm algorithm = queueData.algorithm();
+            int budget = queueData.budget();
+            Indicators indicators = queueData.indicators();
             Collection<StandardIndicator> selectedIndicators = indicators.getSelectedIndicators();
 
             Instrumenter instrumenter = new Instrumenter()
                     .withFrequency(Frequency.ofEvaluations(100))
-                    .withReferenceSet(queueData.getReferenceSet());
+                    .withReferenceSet(queueData.referenceSet());
 
             attachCollectors(instrumenter, selectedIndicators);
 

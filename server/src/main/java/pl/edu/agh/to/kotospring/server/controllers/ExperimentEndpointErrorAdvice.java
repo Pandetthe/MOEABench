@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ExperimentEndpointErrorAdvice {
-    private static final Pattern FULL_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)/(\\d+)/(\\d+)(?:/.*)?$");
+    private static final Pattern FULL_PATH_PATTERN = Pattern.compile(
+            "^/experiments/(\\d+)/runs/(\\d+)/parts/(\\d+)(?:/.*)?$");
 
     private static final Pattern EXPERIMENT_PATH_PATTERN = Pattern.compile("^/experiments/(\\d+)(?:/.*)?$");
 

@@ -62,7 +62,7 @@ public class ProblemProvidersConfiguration {
     }
 
     @Bean
-    public RegisteredProblemProvider MiscProblemProvider() {
+    public RegisteredProblemProvider miscProblemProvider() {
         return new MiscProblemProvider();
     }
 }

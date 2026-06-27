@@ -55,4 +55,12 @@ public interface ExperimentPartExecutionRepository extends JpaRepository<Experim
             where p.id = :id and p.experimentRun.id = :runId
             """)
     Optional<PartStatusInfo> findStatusInfoById(RunId runId, Long id);
+
+    @Query("""
+            select p from ExperimentPartExecution p
+            join fetch p.experimentRun r
+            join fetch r.experiment e
+            where p.id = :id
+            """)
+    Optional<ExperimentPartExecution> findByIdWithRunAndExperiment(Long id);
 }

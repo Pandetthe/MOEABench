@@ -54,7 +54,7 @@ public interface ExperimentClient {
                         @PathVariable long runNo,
                         @PathVariable long partId);
 
-        @GetExchange("/experiments/{id}/status/")
+        @GetExchange("/experiments/{id}/status")
         GetExperimentStatusResponse getExperimentStatus(@PathVariable("id") long id);
 
         @GetExchange("/experiments/{id}/runs/{runNo}/status")
@@ -107,7 +107,7 @@ public interface ExperimentClient {
         void deleteExperimentRun(@PathVariable("id") long id, @PathVariable("runNo") long runNo);
 
         @PostExchange("/experiments/groups")
-        void createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
+        CreateExperimentGroupResponse createExperimentGroup(@RequestBody CreateExperimentGroupRequest request);
 
         @GetExchange("/experiments/groups")
         GetExperimentGroupsResponse getExperimentGroups();

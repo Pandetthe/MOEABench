@@ -3,6 +3,7 @@ package pl.edu.agh.to.kotospring.server.repositories;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
+import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.time.OffsetDateTime;
@@ -29,6 +30,13 @@ public interface ExperimentRepository extends JpaRepository<Experiment, Long> {
             where ex.id = :id
             """)
     Optional<Experiment> findWithRunsById(Long id);
+
+    @Query("""
+            select distinct ex from Experiment ex
+            left join fetch ex.runs ru on ru.status = :status
+            where ex.id = :id
+            """)
+    Optional<Experiment> findWithRunsByIdAndStatus(Long id, ExperimentRunStatus status);
 
     @Query("""
             select distinct ex from Experiment ex

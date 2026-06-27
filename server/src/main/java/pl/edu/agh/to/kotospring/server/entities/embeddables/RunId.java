@@ -14,9 +14,7 @@ public class RunId implements Serializable {
     private Long runNo;
 
     public RunId() {}
-    public RunId(Long runNo) {
-        this.runNo = runNo;
-    }
+
     public RunId(Long experimentId, Long runNo) {
         this.runNo = runNo;
         this.experimentId = experimentId;

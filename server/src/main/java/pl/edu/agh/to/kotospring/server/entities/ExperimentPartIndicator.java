@@ -13,7 +13,7 @@ public class ExperimentPartIndicator {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "experiment_part_id", nullable = false)
-    private ExperimentPartExecution experimentPart;
+    private ExperimentPartExecution experimentPartExecution;
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -33,14 +33,14 @@ public class ExperimentPartIndicator {
         return id;
     }
 
-    public ExperimentPartExecution getExperimentPart() {
-        return experimentPart;
+    public ExperimentPartExecution getExperimentPartExecution() {
+        return experimentPartExecution;
     }
 
-    public void setExperimentPart(ExperimentPartExecution experimentPart) {
-        this.experimentPart = experimentPart;
-        if (experimentPart != null && !experimentPart.getIndicators().contains(this)) {
-            experimentPart.addIndicator(this);
+    public void setExperimentPartExecution(ExperimentPartExecution experimentPartExecution) {
+        this.experimentPartExecution = experimentPartExecution;
+        if (experimentPartExecution != null && !experimentPartExecution.getIndicators().contains(this)) {
+            experimentPartExecution.addIndicator(this);
         }
     }
 

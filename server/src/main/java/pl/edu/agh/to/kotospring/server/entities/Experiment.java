@@ -92,7 +92,6 @@ public class Experiment {
         }
         if (this.runs.add(run)) {
             run.setExperiment(this);
-            runCount++;
         }
     }
 
@@ -101,7 +100,6 @@ public class Experiment {
             return;
         if (this.runs.remove(run)) {
             run.setExperiment(null);
-            runCount--;
         }
     }
 

@@ -16,7 +16,7 @@ public class ExperimentPartSolution {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "experiment_part_id", nullable = false)
-    private ExperimentPartExecution experimentPart;
+    private ExperimentPartExecution experimentPartExecution;
 
     @ElementCollection
     @CollectionTable(name = "experiment_part_solution_variable", joinColumns = @JoinColumn(name = "solution_id"))
@@ -43,23 +43,23 @@ public class ExperimentPartSolution {
             Map<String, String> variables,
             Map<String, Double> objectives,
             Map<String, Double> constraints) {
-        this.variables = variables;
-        this.objectives = objectives;
-        this.constraints = constraints;
+        this.variables = new HashMap<>(variables);
+        this.objectives = new HashMap<>(objectives);
+        this.constraints = new HashMap<>(constraints);
     }
 
     public Long getId() {
         return id;
     }
 
-    public ExperimentPartExecution getExperimentPart() {
-        return experimentPart;
+    public ExperimentPartExecution getExperimentPartExecution() {
+        return experimentPartExecution;
     }
 
-    public void setExperimentPart(ExperimentPartExecution experimentPart) {
-        this.experimentPart = experimentPart;
-        if (experimentPart != null && !experimentPart.getSolutions().contains(this)) {
-            experimentPart.addSolution(this);
+    public void setExperimentPartExecution(ExperimentPartExecution experimentPartExecution) {
+        this.experimentPartExecution = experimentPartExecution;
+        if (experimentPartExecution != null && !experimentPartExecution.getSolutions().contains(this)) {
+            experimentPartExecution.addSolution(this);
         }
     }
 

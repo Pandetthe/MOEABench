@@ -27,6 +27,9 @@ import pl.edu.agh.to.kotospring.client.views.ResizingListView.ResizingListViewOp
 import pl.edu.agh.to.kotospring.client.views.cells.UniversalButtonCell;
 
 public class MainMenu {
+    // Raw key code produced by some terminals for Backspace; bitmasked to strip modifier flags.
+    private static final int LIBVTERM_BACKSPACE_KEY = 1073741928 & 1048575;
+
     private final List<ScenarioData> scenarioList = new ArrayList<>();
     private final TerminalUIBuilder terminalUIBuilder;
 
@@ -100,8 +103,7 @@ public class MainMenu {
                 .doOnNext(m -> {
                     if (m.getPlainKey() == Key.q && m.hasCtrl()) {
                         handleQuitOrReturn();
-                    } else if (m.getPlainKey() == (1073741928 & 1048575)) {
-                        // Fix for weird bug, that backspace is not the same key
+                    } else if (m.getPlainKey() == LIBVTERM_BACKSPACE_KEY) {
                         eventLoop.dispatch(ShellMessageBuilder.ofKeyEvent(new KeyEvent(Key.Backspace, null)));
                     }
                 })

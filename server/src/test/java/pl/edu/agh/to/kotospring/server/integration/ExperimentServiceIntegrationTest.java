@@ -375,8 +375,8 @@ class ExperimentServiceIntegrationTest extends AbstractPostgresIntegrationTest {
 
         // then
         assertThat(runOpt).isPresent();
-        assertThat(runOpt.get().getParts()).hasSize(1);
-        assertThat(runOpt.get().getParts()).allMatch(p -> p.getStatus() == ExperimentPartStatus.COMPLETED);
+        assertThat(runOpt.get().parts()).hasSize(1);
+        assertThat(runOpt.get().parts()).allMatch(p -> p.getStatus() == ExperimentPartStatus.COMPLETED);
     }
 
     @Test
@@ -401,7 +401,7 @@ class ExperimentServiceIntegrationTest extends AbstractPostgresIntegrationTest {
 
         // then
         assertThat(runOpt).isPresent();
-        assertThat(runOpt.get().getParts()).isEmpty();
+        assertThat(runOpt.get().parts()).isEmpty();
     }
 
     @Test
@@ -483,14 +483,14 @@ class ExperimentServiceIntegrationTest extends AbstractPostgresIntegrationTest {
                 Map.of("f1", 1.0, "f2", 2.0),
                 Map.of("c1", 0.0)
         );
-        firstSolution.setExperimentPart(partExecution);
+        firstSolution.setExperimentPartExecution(partExecution);
 
         ExperimentPartSolution secondSolution = new ExperimentPartSolution(
                 Map.of("x1", "0.3", "x2", "0.4"),
                 Map.of("f1", 3.0, "f2", 4.0),
                 Map.of("c1", 0.0)
         );
-        secondSolution.setExperimentPart(partExecution);
+        secondSolution.setExperimentPartExecution(partExecution);
 
         experimentPartSolutionRepository.saveAllAndFlush(List.of(firstSolution, secondSolution));
 

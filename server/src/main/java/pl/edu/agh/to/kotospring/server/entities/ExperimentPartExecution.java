@@ -3,7 +3,6 @@ package pl.edu.agh.to.kotospring.server.entities;
 import jakarta.persistence.*;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
-import java.util.Optional;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -27,7 +26,7 @@ public class ExperimentPartExecution {
     @JoinColumn(name = "experiment_part_id", nullable = false)
     private ExperimentPart experimentPart;
 
-    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "experimentPartExecution", cascade = CascadeType.ALL, orphanRemoval = true)
     private final Set<ExperimentPartIndicator> indicators = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
@@ -43,7 +42,7 @@ public class ExperimentPartExecution {
     @Column(name = "finished_at")
     private OffsetDateTime finishedAt;
 
-    @OneToMany(mappedBy = "experimentPart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "experimentPartExecution", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private final Set<ExperimentPartSolution> solutions = new HashSet<>();
 
     @Lob
@@ -91,11 +90,8 @@ public class ExperimentPartExecution {
         return Optional.ofNullable(experimentPart).map(ExperimentPart::getAlgorithm);
     }
 
-    public OptionalInt getBudget() {
-        return Optional.ofNullable(experimentPart)
-                .map(ExperimentPart::getBudget)
-                .map(OptionalInt::of)
-                .orElseGet(OptionalInt::empty);
+    public int getBudget() {
+        return experimentPart.getBudget();
     }
 
     public Optional<Set<ExperimentPartAlgorithmParameter>> getParameters() {
@@ -111,7 +107,7 @@ public class ExperimentPartExecution {
             throw new IllegalArgumentException("indicator must not be null");
         }
         if (this.indicators.add(indicator)) {
-            indicator.setExperimentPart(this);
+            indicator.setExperimentPartExecution(this);
         }
     }
 
@@ -119,7 +115,7 @@ public class ExperimentPartExecution {
         if (indicator == null)
             return;
         if (this.indicators.remove(indicator)) {
-            indicator.setExperimentPart(null);
+            indicator.setExperimentPartExecution(null);
         }
     }
 
@@ -164,7 +160,7 @@ public class ExperimentPartExecution {
             throw new IllegalArgumentException("solution must not be null");
         }
         if (this.solutions.add(solution)) {
-            solution.setExperimentPart(this);
+            solution.setExperimentPartExecution(this);
         }
     }
 
@@ -172,7 +168,7 @@ public class ExperimentPartExecution {
         if (solution == null)
             return;
         if (this.solutions.remove(solution)) {
-            solution.setExperimentPart(null);
+            solution.setExperimentPartExecution(null);
         }
     }
 

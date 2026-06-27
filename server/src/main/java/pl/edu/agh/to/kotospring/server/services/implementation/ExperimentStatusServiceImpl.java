@@ -1,7 +1,5 @@
 package pl.edu.agh.to.kotospring.server.services.implementation;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import org.moeaframework.core.Solution;
 import org.moeaframework.core.constraint.Constraint;
 import org.moeaframework.core.indicator.Indicators;
@@ -17,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.repositories.*;
+import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentFinalizationService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentStatusService;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
@@ -34,7 +33,7 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
     private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
     private final ExperimentPartIndicatorRepository experimentPartIndicatorRepository;
     private final ExperimentPartSolutionRepository experimentPartSolutionRepository;
-    private final EntityManager entityManager;
+    private final ExperimentFinalizationService experimentFinalizationService;
 
     private static final Set<ExperimentStatus> ACTIVE_OR_FINISHED_STATUSES_OF_EXPERIMENT = EnumSet.of(
             ExperimentStatus.IN_PROGRESS,
@@ -53,19 +52,19 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
             ExperimentPartIndicatorRepository experimentPartIndicatorRepository,
             ExperimentPartSolutionRepository experimentPartSolutionRepository,
             ExperimentRepository experimentRepository,
-            EntityManager entityManager) {
+            ExperimentFinalizationService experimentFinalizationService) {
         this.experimentRunRepository = experimentRunRepository;
         this.experimentPartExecutionRepository = experimentPartExecutionRepository;
         this.experimentPartIndicatorRepository = experimentPartIndicatorRepository;
         this.experimentPartSolutionRepository = experimentPartSolutionRepository;
         this.experimentRepository = experimentRepository;
-        this.entityManager = entityManager;
+        this.experimentFinalizationService = experimentFinalizationService;
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsStarted(Long partId) {
-        ExperimentPartExecution part = getPartOrThrow(partId);
+        ExperimentPartExecution part = getPartWithRunAndExperimentOrThrow(partId);
         ExperimentRun experimentRun = part.getExperimentRun();
         OffsetDateTime now = OffsetDateTime.now();
         if (!ACTIVE_OR_FINISHED_STATUSES_OF_RUN.contains(experimentRun.getStatus())) {
@@ -92,20 +91,21 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsCompleted(Long partId, Indicators.IndicatorValues indicatorValues,
             NondominatedPopulation result, Optional<byte[]> plotImage) {
-        ExperimentPartExecution part = getPartOrThrow(partId);
+        ExperimentPartExecution part = getPartWithRunAndExperimentOrThrow(partId);
         processIndicators(part, indicatorValues);
         saveSolutions(part, result);
         part.setPlotImage(plotImage.orElse(null));
         part.setStatus(ExperimentPartStatus.COMPLETED);
         part.setFinishedAt(OffsetDateTime.now());
         experimentPartExecutionRepository.saveAndFlush(part);
-        checkAndFinalizeExperimentRun(part.getExperimentRun().getId());
+        RunId runId = part.getExperimentRun().getId();
+        experimentFinalizationService.finalizeRunIfComplete(runId);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markPartAsFailed(Long partId, String errorMessage) {
-        ExperimentPartExecution part = getPartOrThrow(partId);
+        ExperimentPartExecution part = getPartWithRunAndExperimentOrThrow(partId);
         part.setStatus(ExperimentPartStatus.FAILED);
         part.setFinishedAt(OffsetDateTime.now());
         if (errorMessage != null && errorMessage.length() > 2000) {
@@ -113,90 +113,19 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         }
         part.setErrorMessage(errorMessage);
         experimentPartExecutionRepository.saveAndFlush(part);
-        checkAndFinalizeExperimentRun(part.getExperimentRun().getId());
+        RunId runId = part.getExperimentRun().getId();
+        experimentFinalizationService.finalizeRunIfComplete(runId);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void checkAndFinalizeExperimentRun(RunId runId) {
-        Experiment experiment = entityManager.find(Experiment.class, runId.getExperimentId(),
-                LockModeType.PESSIMISTIC_WRITE);
-        ExperimentRun run = entityManager.find(ExperimentRun.class, runId, LockModeType.PESSIMISTIC_WRITE);
-        List<ExperimentPartExecution> parts = experimentPartExecutionRepository.findAllByExperimentRunId(runId);
-        boolean isStillRunning = parts.stream().anyMatch(
-                p -> p.getStatus() == ExperimentPartStatus.RUNNING || p.getStatus() == ExperimentPartStatus.QUEUED);
-        if (isStillRunning) {
-            return;
-        }
-        long totalCount = parts.size();
-        long completedCount = parts.stream().filter(p -> p.getStatus() == ExperimentPartStatus.COMPLETED).count();
-        OffsetDateTime latestFinished = parts.stream()
-                .map(ExperimentPartExecution::getFinishedAt)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(OffsetDateTime.now());
-        ExperimentRunStatus finalStatus = determineExperimentRunFinalStatus(totalCount, completedCount);
-        run.setStatus(finalStatus);
-        run.setFinishedAt(latestFinished);
-        experimentRunRepository.saveAndFlush(run);
-        logger.info("Run {} of experiment {} finished with status {}", runId.getRunNo(), runId.getExperimentId(),
-                finalStatus);
-        internalFinalizeExperiment(experiment);
-    }
-
-    private void internalFinalizeExperiment(Experiment experiment) {
-        List<ExperimentRun> runs = experimentRunRepository.findAllByIdExperimentId(experiment.getId());
-        boolean isStillRunning = runs.stream().anyMatch(
-                r -> r.getStatus() == ExperimentRunStatus.IN_PROGRESS || r.getStatus() == ExperimentRunStatus.QUEUED);
-        if (isStillRunning) {
-            return;
-        }
-        long totalCount = runs.size();
-        long successfulCount = runs.stream().filter(r -> r.getStatus() == ExperimentRunStatus.SUCCESS).count();
-        long partialCount = runs.stream().filter(r -> r.getStatus() == ExperimentRunStatus.PARTIAL_SUCCESS).count();
-        OffsetDateTime latestFinished = runs.stream()
-                .map(ExperimentRun::getFinishedAt)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(OffsetDateTime.now());
-        ExperimentStatus finalStatus = determineExperimentFinalStatus(totalCount, successfulCount, partialCount);
-        experiment.setStatus(finalStatus);
-        experiment.setFinishedAt(latestFinished);
-        experimentRepository.saveAndFlush(experiment);
-        logger.info("Experiment {} fully finalized with status {}", experiment.getId(), finalStatus);
-    }
-
-    private ExperimentRunStatus determineExperimentRunFinalStatus(long totalCount, long completedCount) {
-        if (completedCount == totalCount) {
-            return ExperimentRunStatus.SUCCESS;
-        } else if (completedCount > 0) {
-            return ExperimentRunStatus.PARTIAL_SUCCESS;
-        } else {
-            return ExperimentRunStatus.FAILED;
-        }
-    }
-
-    private ExperimentStatus determineExperimentFinalStatus(long totalCount, long successfulCount, long partialCount) {
-        if (successfulCount == totalCount) {
-            return ExperimentStatus.SUCCESS;
-        } else if (successfulCount > 0 || partialCount > 0) {
-            return ExperimentStatus.PARTIAL_SUCCESS;
-        } else {
-            return ExperimentStatus.FAILED;
-        }
-    }
-
-    private ExperimentPartExecution getPartOrThrow(Long partId) throws IllegalStateException {
-        return experimentPartExecutionRepository.findById(partId)
+    private ExperimentPartExecution getPartWithRunAndExperimentOrThrow(Long partId) {
+        return experimentPartExecutionRepository.findByIdWithRunAndExperiment(partId)
                 .orElseThrow(() -> new IllegalStateException("ExperimentPartExecution not found: " + partId));
     }
 
     private void processIndicators(ExperimentPartExecution part, Indicators.IndicatorValues indicatorValues) {
-        Set<ExperimentPartIndicator> existingIndicators = part.getIndicators();
-        existingIndicators.forEach(indicator -> {
-            String name = indicator.getName();
-            StandardIndicator nameParsed = StandardIndicator.valueOf(name);
-            double value = indicatorValues.get(nameParsed);
-            indicator.setValue(value);
+        part.getIndicators().forEach(indicator -> {
+            StandardIndicator nameParsed = StandardIndicator.valueOf(indicator.getName());
+            indicator.setValue(indicatorValues.get(nameParsed));
             experimentPartIndicatorRepository.save(indicator);
         });
     }
@@ -221,7 +150,7 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
             }
             ExperimentPartSolution solutionEntity = new ExperimentPartSolution(variablesMap, objectivesMap,
                     constraintsMap);
-            solutionEntity.setExperimentPart(part);
+            solutionEntity.setExperimentPartExecution(part);
             solutionEntities.add(solutionEntity);
         }
         if (!solutionEntities.isEmpty()) {

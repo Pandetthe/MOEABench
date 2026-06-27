@@ -6,6 +6,7 @@ import pl.edu.agh.to.kotospring.server.entities.ExperimentRun;
 import pl.edu.agh.to.kotospring.server.entities.Experiment;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
 import pl.edu.agh.to.kotospring.server.entities.ExperimentPartExecution;
+import pl.edu.agh.to.kotospring.server.models.ExperimentRunView;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
@@ -28,7 +29,7 @@ public interface ExperimentService {
                         ExperimentRunStatus status, OffsetDateTime start, OffsetDateTime end,
                         Pageable pageable);
 
-        Optional<ExperimentRun> getExperimentRun(
+        Optional<ExperimentRunView> getExperimentRun(
                         long id, long runNo, String algorithm, String problem,
                         String indicator, ExperimentPartStatus partStatus);
 

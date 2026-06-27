@@ -6,7 +6,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
@@ -17,8 +16,6 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.*;
 import io.swagger.v3.oas.annotations.Operation;
-import pl.edu.agh.to.kotospring.server.entities.ExperimentGroup;
-import java.util.stream.Collectors;
 
 import java.time.OffsetDateTime;
 
@@ -34,13 +31,13 @@ public final class ExperimentController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CreateExperimentRequest body) {
+    public ResponseEntity<CreateExperimentResponse> create(@RequestBody CreateExperimentRequest body) {
         var experiment = experimentService.createExperiment(body);
         return ResponseEntity.ok(experimentMapper.mapToCreateResponse(experiment));
     }
 
     @GetMapping
-    public ResponseEntity<?> getExperiments(
+    public ResponseEntity<GetExperimentsResponse> getExperiments(
             @RequestParam(required = false) String algorithm,
             @RequestParam(required = false) String problem,
             @RequestParam(required = false) String indicator,
@@ -53,7 +50,7 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}")
-    public ResponseEntity<?> getExperiment(
+    public ResponseEntity<GetExperimentResponse> getExperiment(
             @PathVariable long id,
             @RequestParam(required = false) ExperimentRunStatus runStatus) {
         return experimentService.getExperiment(id, runStatus)
@@ -64,8 +61,7 @@ public final class ExperimentController {
 
     @Operation(summary = "Get experiment aggregations")
     @GetMapping("{id}/aggregate")
-    public ResponseEntity<GetExperimentAggregateResponse> getExperimentAggregate(
-            @PathVariable long id) {
+    public ResponseEntity<GetExperimentAggregateResponse> getExperimentAggregate(@PathVariable long id) {
         return ResponseEntity.ok(experimentService.getExperimentAggregate(id));
     }
 
@@ -86,7 +82,7 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}")
-    public ResponseEntity<?> getExperimentRun(
+    public ResponseEntity<GetExperimentRunResponse> getExperimentRun(
             @PathVariable long id,
             @PathVariable long runNo,
             @RequestParam(required = false) String algorithm,
@@ -101,8 +97,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}/parts/{partId}")
-    public ResponseEntity<?> getExperimentPart(@PathVariable long id, @PathVariable long runNo,
-            @PathVariable long partId) {
+    public ResponseEntity<GetExperimentPartResponse> getExperimentPart(
+            @PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
         return experimentService.getExperimentPart(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartResponse)
                 .map(ResponseEntity::ok)
@@ -126,7 +122,7 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/status")
-    public ResponseEntity<?> getExperimentStatus(@PathVariable long id) {
+    public ResponseEntity<GetExperimentStatusResponse> getExperimentStatus(@PathVariable long id) {
         return experimentService.getExperimentStatus(id)
                 .map(experimentMapper::mapToGetExperimentStatusResponse)
                 .map(ResponseEntity::ok)
@@ -134,7 +130,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}/status")
-    public ResponseEntity<?> getExperimentRunStatus(@PathVariable long id, @PathVariable long runNo) {
+    public ResponseEntity<GetExperimentRunStatusResponse> getExperimentRunStatus(
+            @PathVariable long id, @PathVariable long runNo) {
         return experimentService.getExperimentRunStatus(id, runNo)
                 .map(experimentMapper::mapToGetExperimentRunStatusResponse)
                 .map(ResponseEntity::ok)
@@ -142,8 +139,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}/parts/{partId}/status")
-    public ResponseEntity<?> getExperimentPartStatus(@PathVariable long id, @PathVariable long runNo,
-            @PathVariable long partId) {
+    public ResponseEntity<GetExperimentPartStatusResponse> getExperimentPartStatus(
+            @PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
         return experimentService.getExperimentPartStatus(id, runNo, partId)
                 .map(experimentMapper::mapToGetExperimentPartStatusResponse)
                 .map(ResponseEntity::ok)
@@ -151,7 +148,7 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/result")
-    public ResponseEntity<?> getExperimentResult(@PathVariable long id) {
+    public ResponseEntity<GetExperimentResultResponse> getExperimentResult(@PathVariable long id) {
         return experimentService.getExperimentResult(id)
                 .map(exp -> {
                     if (exp.getStatus() == ExperimentStatus.QUEUED ||
@@ -166,10 +163,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}/result")
-    public ResponseEntity<?> getExperimentRunResult(
-            @PathVariable long id,
-            @PathVariable long runNo) {
-
+    public ResponseEntity<GetExperimentRunResultResponse> getExperimentRunResult(
+            @PathVariable long id, @PathVariable long runNo) {
         return experimentService.getExperimentRunResult(id, runNo)
                 .map(run -> {
                     if (run.getStatus() == ExperimentRunStatus.QUEUED ||
@@ -184,8 +179,8 @@ public final class ExperimentController {
     }
 
     @GetMapping("{id}/runs/{runNo}/parts/{partId}/result")
-    public ResponseEntity<?> getExperimentPartResult(@PathVariable long id, @PathVariable long runNo,
-            @PathVariable long partId) {
+    public ResponseEntity<GetExperimentPartResultResponse> getExperimentPartResult(
+            @PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
         return experimentService.getExperimentPartResult(id, runNo, partId)
                 .map(part -> {
                     if (part.getStatus() == ExperimentPartStatus.QUEUED ||
@@ -201,44 +196,40 @@ public final class ExperimentController {
 
     @GetMapping(value = "{id}/runs/{runNo}/parts/{partId}/csv", produces = "text/csv")
     public ResponseEntity<String> getExperimentPartCsv(
-            @PathVariable long id,
-            @PathVariable long runNo,
-            @PathVariable long partId) {
+            @PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
         return experimentService.getExperimentPartCsv(id, runNo, partId)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment part not found"));
     }
 
     @DeleteMapping("{id}")
-    public ResponseEntity<?> deleteExperiment(@PathVariable long id) {
+    public ResponseEntity<Void> deleteExperiment(@PathVariable long id) {
         if (experimentService.deleteExperiment(id))
             return ResponseEntity.noContent().build();
         throw new NotFoundException("Experiment not found");
     }
 
     @DeleteMapping("{id}/runs/{runNo}")
-    public ResponseEntity<?> deleteExperimentRun(@PathVariable long id, @PathVariable long runNo) {
+    public ResponseEntity<Void> deleteExperimentRun(@PathVariable long id, @PathVariable long runNo) {
         if (experimentService.deleteExperimentRun(id, runNo))
             return ResponseEntity.noContent().build();
         throw new NotFoundException("Experiment run not found");
     }
 
     @PostMapping("groups")
-    public ResponseEntity<?> createExperimentGroup(@RequestBody CreateExperimentGroupRequest request) {
-        ExperimentGroup group = experimentService.createExperimentGroup(request.name());
-        return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
+    public ResponseEntity<CreateExperimentGroupResponse> createExperimentGroup(
+            @RequestBody CreateExperimentGroupRequest request) {
+        var group = experimentService.createExperimentGroup(request.name());
+        return ResponseEntity.ok(new CreateExperimentGroupResponse(group.getId(), group.getName()));
     }
 
     @GetMapping("groups")
-    public ResponseEntity<?> getExperimentGroups() {
-        List<ExperimentGroup> groups = experimentService.getExperimentGroups();
-        return ResponseEntity.ok(groups.stream()
-                .map(experimentMapper::mapToGroupResponse)
-                .collect(Collectors.toList()));
+    public ResponseEntity<GetExperimentGroupsResponse> getExperimentGroups() {
+        return ResponseEntity.ok(experimentMapper.mapToGroupsResponse(experimentService.getExperimentGroups()));
     }
 
     @GetMapping("groups/{groupId}")
-    public ResponseEntity<?> getExperimentGroup(@PathVariable Long groupId) {
+    public ResponseEntity<GetExperimentGroupResponse> getExperimentGroup(@PathVariable Long groupId) {
         return experimentService.getExperimentGroup(groupId)
                 .map(experimentMapper::mapToGroupResponse)
                 .map(ResponseEntity::ok)
@@ -246,34 +237,29 @@ public final class ExperimentController {
     }
 
     @PostMapping("{id}/runs/{runNo}/groups/{groupId}")
-    public ResponseEntity<?> addRunToExperimentGroup(
-            @PathVariable Long groupId,
-            @PathVariable Long id,
-            @PathVariable Long runNo) {
-        ExperimentGroup group = experimentService.addRunToExperimentGroup(groupId, id, runNo);
+    public ResponseEntity<GetExperimentGroupResponse> addRunToExperimentGroup(
+            @PathVariable Long groupId, @PathVariable Long id, @PathVariable Long runNo) {
+        var group = experimentService.addRunToExperimentGroup(groupId, id, runNo);
         return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
     }
 
     @DeleteMapping("groups/{groupId}")
-    public ResponseEntity<?> deleteExperimentGroup(@PathVariable Long groupId) {
-        if (experimentService.deleteExperimentGroup(groupId)) {
+    public ResponseEntity<Void> deleteExperimentGroup(@PathVariable Long groupId) {
+        if (experimentService.deleteExperimentGroup(groupId))
             return ResponseEntity.noContent().build();
-        }
         throw new NotFoundException("Experiment group not found");
     }
 
     @DeleteMapping("{id}/runs/{runNo}/groups/{groupId}")
-    public ResponseEntity<?> deleteRunFromExperimentGroup(
-            @PathVariable Long groupId,
-            @PathVariable Long id,
-            @PathVariable Long runNo) {
-        ExperimentGroup group = experimentService.deleteRunFromExperimentGroup(groupId, id, runNo);
+    public ResponseEntity<GetExperimentGroupResponse> deleteRunFromExperimentGroup(
+            @PathVariable Long groupId, @PathVariable Long id, @PathVariable Long runNo) {
+        var group = experimentService.deleteRunFromExperimentGroup(groupId, id, runNo);
         return ResponseEntity.ok(experimentMapper.mapToGroupResponse(group));
     }
 
     @GetMapping("groups/{groupId}/aggregate")
-    public ResponseEntity<GetExperimentAggregateResponse> getExperimentGroupAggregate(@PathVariable Long groupId) {
+    public ResponseEntity<GetExperimentAggregateResponse> getExperimentGroupAggregate(
+            @PathVariable Long groupId) {
         return ResponseEntity.ok(experimentService.getExperimentGroupAggregate(groupId));
     }
-
 }
