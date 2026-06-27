@@ -16,7 +16,6 @@ import pl.edu.agh.to.kotospring.client.views.SimpleMessageView;
 import pl.edu.agh.to.kotospring.client.views.SimpleTableView;
 import pl.edu.agh.to.kotospring.shared.experiments.contracts.GetExperimentPartResponse;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.time.ZoneId;
@@ -163,9 +162,12 @@ public class GetExperimentPartScenario extends Scenario {
                 fos.write(imageBytes);
             }
 
-            openFile(file);
-            navigate(new SimpleMessageView("Plot Downloaded", "Plot saved to: " + file.getAbsolutePath()
-                    + "\nAttempting to open image with system default viewer..."));
+            boolean opened = openFile(file);
+            String msg = "Plot saved to: " + file.getAbsolutePath();
+            if (!opened) {
+                msg += "\nCould not open a viewer automatically. Open the file manually.";
+            }
+            navigate(new SimpleMessageView("Plot Downloaded", msg));
 
         } catch (WebClientResponseException.NotFound e) {
             navigate(new SimpleMessageView("No Plot",
@@ -207,28 +209,32 @@ public class GetExperimentPartScenario extends Scenario {
         }
     }
 
-    private void openFile(File file) {
-        try {
-            String os = System.getProperty("os.name").toLowerCase();
-            ProcessBuilder pb;
-            if (os.contains("win")) {
-                pb = new ProcessBuilder("cmd", "/c", "start", "\"\"", file.getAbsolutePath());
-            } else if (os.contains("mac")) {
-                pb = new ProcessBuilder("open", file.getAbsolutePath());
-            } else {
-                pb = new ProcessBuilder("xdg-open", file.getAbsolutePath());
+    private boolean openFile(File file) {
+        String os = System.getProperty("os.name").toLowerCase();
+        if (os.contains("win")) {
+            return tryLaunch(new ProcessBuilder("cmd", "/c", "start", "\"\"", file.getAbsolutePath()));
+        } else if (os.contains("mac")) {
+            return tryLaunch(new ProcessBuilder("open", file.getAbsolutePath()));
+        } else {
+            String path = file.getAbsolutePath();
+            for (String viewer : new String[]{"xdg-open", "eog", "feh", "display", "eom", "gpicview"}) {
+                if (tryLaunch(new ProcessBuilder(viewer, path))) {
+                    return true;
+                }
             }
+            return false;
+        }
+    }
+
+    private boolean tryLaunch(ProcessBuilder pb) {
+        try {
             pb.redirectInput(ProcessBuilder.Redirect.DISCARD)
               .redirectOutput(ProcessBuilder.Redirect.DISCARD)
               .redirectError(ProcessBuilder.Redirect.DISCARD)
               .start();
+            return true;
         } catch (Exception e) {
-            try {
-                if (System.getProperty("java.awt.headless", "false").equals("false") && Desktop.isDesktopSupported()) {
-                    Desktop.getDesktop().open(file);
-                }
-            } catch (Exception ignored) {
-            }
+            return false;
         }
     }
 }
