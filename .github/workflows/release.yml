@@ -109,6 +109,7 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+          pattern: moeabench-*
 
       - name: Mark Linux and macOS binaries as executable
         run: chmod +x artifacts/moeabench-linux artifacts/moeabench-macos
