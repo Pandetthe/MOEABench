@@ -210,13 +210,18 @@ public class GetExperimentPartScenario extends Scenario {
     private void openFile(File file) {
         try {
             String os = System.getProperty("os.name").toLowerCase();
+            ProcessBuilder pb;
             if (os.contains("win")) {
-                new ProcessBuilder("cmd", "/c", "start", "\"\"", file.getAbsolutePath()).start();
+                pb = new ProcessBuilder("cmd", "/c", "start", "\"\"", file.getAbsolutePath());
             } else if (os.contains("mac")) {
-                new ProcessBuilder("open", file.getAbsolutePath()).start();
+                pb = new ProcessBuilder("open", file.getAbsolutePath());
             } else {
-                new ProcessBuilder("xdg-open", file.getAbsolutePath()).start();
+                pb = new ProcessBuilder("xdg-open", file.getAbsolutePath());
             }
+            pb.redirectInput(ProcessBuilder.Redirect.DISCARD)
+              .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+              .redirectError(ProcessBuilder.Redirect.DISCARD)
+              .start();
         } catch (Exception e) {
             try {
                 if (System.getProperty("java.awt.headless", "false").equals("false") && Desktop.isDesktopSupported()) {
