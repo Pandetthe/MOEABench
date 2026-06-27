@@ -23,7 +23,7 @@ jobs:
           - os: windows-latest
             artifact: moeabench-windows.exe
             binary: client/target/client.exe
-            mvnw: mvnw.cmd
+            mvnw: .\mvnw.cmd
 
     steps:
       - uses: actions/checkout@v4
