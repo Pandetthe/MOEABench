@@ -53,8 +53,7 @@ jobs:
 
       - name: Rename binary (Windows)
         if: runner.os == 'Windows'
-        shell: cmd
-        run: copy ${{ matrix.binary }} ${{ matrix.artifact }}
+        run: Copy-Item ${{ matrix.binary }} ${{ matrix.artifact }}
 
       - uses: actions/upload-artifact@v4
         with:
