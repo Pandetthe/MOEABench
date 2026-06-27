@@ -131,8 +131,8 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
                 logger.warn("Unrecognised indicator name '{}' stored for part {} — value left null",
                         indicator.getName(), part.getId());
             }
-            experimentPartIndicatorRepository.save(indicator);
         });
+        experimentPartIndicatorRepository.saveAll(part.getIndicators());
     }
 
     private void saveSolutions(ExperimentPartExecution part, NondominatedPopulation result) {

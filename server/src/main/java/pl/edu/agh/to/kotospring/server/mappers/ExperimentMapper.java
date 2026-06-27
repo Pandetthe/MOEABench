@@ -189,6 +189,10 @@ public class ExperimentMapper {
                 runResponses);
     }
 
+    public CreateExperimentGroupResponse mapToCreateGroupResponse(ExperimentGroup group) {
+        return new CreateExperimentGroupResponse(group.getId(), group.getName());
+    }
+
     public GetExperimentGroupsResponse mapToGroupsResponse(List<ExperimentGroup> groups) {
         return new GetExperimentGroupsResponse(groups.stream()
                 .map(g -> new GetExperimentGroupsResponseData(g.getId(), g.getName()))

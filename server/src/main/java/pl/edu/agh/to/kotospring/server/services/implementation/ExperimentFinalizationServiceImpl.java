@@ -20,9 +20,7 @@ import pl.edu.agh.to.kotospring.shared.experiments.ExperimentRunStatus;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentStatus;
 
 import java.time.OffsetDateTime;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class ExperimentFinalizationServiceImpl implements ExperimentFinalizationService {
@@ -52,19 +50,21 @@ public class ExperimentFinalizationServiceImpl implements ExperimentFinalization
         ExperimentRun run = entityManager.find(ExperimentRun.class, runId, LockModeType.PESSIMISTIC_WRITE);
         List<ExperimentPartExecution> parts = experimentPartExecutionRepository.findAllByExperimentRunId(runId);
 
-        boolean isStillRunning = parts.stream().anyMatch(
-                p -> p.getStatus() == ExperimentPartStatus.RUNNING || p.getStatus() == ExperimentPartStatus.QUEUED);
-        if (isStillRunning) {
-            return;
+        long totalCount = 0;
+        long completedCount = 0;
+        OffsetDateTime latestFinished = null;
+        for (ExperimentPartExecution p : parts) {
+            totalCount++;
+            ExperimentPartStatus s = p.getStatus();
+            if (s == ExperimentPartStatus.RUNNING || s == ExperimentPartStatus.QUEUED) {
+                return;
+            }
+            if (s == ExperimentPartStatus.COMPLETED) completedCount++;
+            if (p.getFinishedAt() != null && (latestFinished == null || p.getFinishedAt().isAfter(latestFinished))) {
+                latestFinished = p.getFinishedAt();
+            }
         }
-
-        long totalCount = parts.size();
-        long completedCount = parts.stream().filter(p -> p.getStatus() == ExperimentPartStatus.COMPLETED).count();
-        OffsetDateTime latestFinished = parts.stream()
-                .map(ExperimentPartExecution::getFinishedAt)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(OffsetDateTime.now());
+        if (latestFinished == null) latestFinished = OffsetDateTime.now();
 
         ExperimentRunStatus finalRunStatus = determineRunFinalStatus(totalCount, completedCount);
         run.setStatus(finalRunStatus);
@@ -78,20 +78,23 @@ public class ExperimentFinalizationServiceImpl implements ExperimentFinalization
 
     private void finalizeExperimentIfComplete(Experiment experiment) {
         List<ExperimentRun> runs = experimentRunRepository.findAllByIdExperimentId(experiment.getId());
-        boolean isStillRunning = runs.stream().anyMatch(
-                r -> r.getStatus() == ExperimentRunStatus.IN_PROGRESS || r.getStatus() == ExperimentRunStatus.QUEUED);
-        if (isStillRunning) {
-            return;
+        long totalCount = 0;
+        long successfulCount = 0;
+        long partialCount = 0;
+        OffsetDateTime latestFinished = null;
+        for (ExperimentRun r : runs) {
+            totalCount++;
+            ExperimentRunStatus s = r.getStatus();
+            if (s == ExperimentRunStatus.IN_PROGRESS || s == ExperimentRunStatus.QUEUED) {
+                return;
+            }
+            if (s == ExperimentRunStatus.SUCCESS) successfulCount++;
+            else if (s == ExperimentRunStatus.PARTIAL_SUCCESS) partialCount++;
+            if (r.getFinishedAt() != null && (latestFinished == null || r.getFinishedAt().isAfter(latestFinished))) {
+                latestFinished = r.getFinishedAt();
+            }
         }
-
-        long totalCount = runs.size();
-        long successfulCount = runs.stream().filter(r -> r.getStatus() == ExperimentRunStatus.SUCCESS).count();
-        long partialCount = runs.stream().filter(r -> r.getStatus() == ExperimentRunStatus.PARTIAL_SUCCESS).count();
-        OffsetDateTime latestFinished = runs.stream()
-                .map(ExperimentRun::getFinishedAt)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(OffsetDateTime.now());
+        if (latestFinished == null) latestFinished = OffsetDateTime.now();
 
         ExperimentStatus finalStatus = determineExperimentFinalStatus(totalCount, successfulCount, partialCount);
         experiment.setStatus(finalStatus);

@@ -199,7 +199,7 @@ public final class ExperimentController {
     public ResponseEntity<CreateExperimentGroupResponse> createExperimentGroup(
             @RequestBody CreateExperimentGroupRequest request) {
         var group = experimentService.createExperimentGroup(request.name());
-        return ResponseEntity.status(HttpStatus.CREATED).body(new CreateExperimentGroupResponse(group.getId(), group.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(experimentMapper.mapToCreateGroupResponse(group));
     }
 
     @GetMapping("groups")

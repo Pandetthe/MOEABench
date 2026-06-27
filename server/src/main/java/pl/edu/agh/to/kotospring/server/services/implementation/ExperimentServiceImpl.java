@@ -83,8 +83,11 @@ public class ExperimentServiceImpl implements ExperimentService {
                 .map(this::createExperimentPartDefinition)
                 .toList();
 
-        definitions.forEach(pair -> experiment.addPart(pair.part()));
-        experimentPartRepository.saveAll(definitions.stream().map(ExperimentPartWithRequest::part).toList());
+        List<ExperimentPart> parts = definitions.stream()
+                .map(ExperimentPartWithRequest::part)
+                .peek(experiment::addPart)
+                .toList();
+        experimentPartRepository.saveAll(parts);
 
         List<QueueData> dataToQueue = new ArrayList<>();
 
@@ -413,10 +416,10 @@ public class ExperimentServiceImpl implements ExperimentService {
         for (ExperimentPartExecution epe : representativeRun.getParts()) {
             ExperimentPart part = epe.getExperimentPart();
             if (part.getAlgorithm().equals(algorithm) && part.getProblem().equals(problem)) {
-                Map<String, String> params = new HashMap<>();
-                for (ExperimentPartAlgorithmParameter param : part.getParameters()) {
-                    params.put(param.getKey(), param.getValue());
-                }
+                Map<String, String> params = part.getParameters().stream()
+                        .collect(Collectors.toMap(
+                                ExperimentPartAlgorithmParameter::getKey,
+                                ExperimentPartAlgorithmParameter::getValue));
                 return new ExperimentPartMetadata(part.getBudget(), params);
             }
         }
