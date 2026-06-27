@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: moeabench-linux
+            binary: client/target/client
+            mvnw: ./mvnw
+          - os: macos-latest
+            artifact: moeabench-macos
+            binary: client/target/client
+            mvnw: ./mvnw
+          - os: windows-latest
+            artifact: moeabench-windows.exe
+            binary: client/target/client.exe
+            mvnw: mvnw.cmd
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'graalvm-community'
+          native-image-job-reports: 'true'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Build native executable
+        run: ${{ matrix.mvnw }} -Pnative native:compile -pl client -am -DskipTests
+
+      - name: Rename binary (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: cp ${{ matrix.binary }} ${{ matrix.artifact }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: copy ${{ matrix.binary }} ${{ matrix.artifact }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Mark Linux and macOS binaries as executable
+        run: chmod +x artifacts/moeabench-linux artifacts/moeabench-macos
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --repo ${{ github.repository }} \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes \
+            artifacts/moeabench-linux \
+            artifacts/moeabench-macos \
+            artifacts/moeabench-windows.exe
