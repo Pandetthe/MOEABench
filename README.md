@@ -31,7 +31,29 @@ The system supports configuring and executing multi-objective optimization algor
 - Explore available algorithms, problems, and indicators via dedicated REST endpoints
 - Interactive terminal UI client with scenario-based navigation
 
-## Technical Requirements
+## Running
+
+The easiest way to run the server is via Docker Compose — no Java or PostgreSQL installation required:
+
+```bash
+docker compose up
+```
+
+This starts a PostgreSQL 17 instance and the server on `http://localhost:8080`.
+
+Alternatively, pull the pre-built server image from GHCR and run it against your own PostgreSQL:
+
+```bash
+docker run -e DATABASE_URL=jdbc:postgresql://<host>:<port>/<db>?user=<user>&password=<pass> \
+  -p 8080:8080 \
+  ghcr.io/pandetthe/moeabench/server:latest
+```
+
+The client (TUI) is a native binary — see [Releases](https://github.com/pandetthe/MOEABench/releases) for pre-built binaries for Linux, macOS, and Windows.
+
+The server REST API is available with Swagger UI at `http://localhost:8080/swagger-ui.html`.
+
+## Development
 
 Requires Java 25 and Maven (see `.mise.toml`), plus a running **PostgreSQL** instance for the server module.
 
@@ -58,8 +80,6 @@ mise install          # install Java 25 via mise
 On Windows use `mvnw.cmd` instead of `./mvnw`. The native executable can be placed directly on your `PATH` and invoked without Java installed.
 
 > **Note:** GraalVM Native Image does not support cross-compilation - each binary must be built on its target OS. Use CI (e.g. GitHub Actions) with an OS matrix to produce all three binaries automatically. On Windows you can also build a Linux binary via Docker + WSL2, but macOS always requires a real Mac machine or CI runner.
-
-The server REST API is available with Swagger UI at `http://localhost:8080/swagger-ui.html`.
 
 To debug the client via an external terminal, run `client-external-console.bat`, wait for it to listen on port `5005`, then attach a `Remote JVM Debug` configuration in your IDE.
 
