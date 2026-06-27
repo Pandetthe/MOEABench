@@ -101,7 +101,6 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         part.setFinishedAt(OffsetDateTime.now());
         experimentPartExecutionRepository.saveAndFlush(part);
         RunId runId = part.getExperimentRun().getId();
-        // Schedule finalization after this transaction commits so the COMPLETED status is visible
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -122,7 +121,6 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         part.setErrorMessage(errorMessage);
         experimentPartExecutionRepository.saveAndFlush(part);
         RunId runId = part.getExperimentRun().getId();
-        // Schedule finalization after this transaction commits so the FAILED status is visible
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
