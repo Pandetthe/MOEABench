@@ -6,8 +6,6 @@
 
 **MOEABench** is a Spring Boot-based platform for running and managing multi-objective optimization experiments using [MOEAFramework](https://github.com/MOEAFramework/MOEAFramework). It was created as an Technologie Obiektowe (Object-Oriented Technologies) university project at AGH University of Krakow. Project task descriptions for each milestone (in Polish) are available in the `assignment/` folder.
 
-## Screenshots
-
 <table>
   <tr>
     <td><img src="docs/main_menu.png" alt="Main Menu"/></td>
