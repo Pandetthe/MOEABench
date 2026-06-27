@@ -4,7 +4,7 @@
 ![CI](https://github.com/pandetthe/MOEABench/actions/workflows/ci.yml/badge.svg)
 ![Release](https://github.com/pandetthe/MOEABench/actions/workflows/release.yml/badge.svg)
 
-**MOEABench** is a Spring Boot-based platform for running and managing multi-objective optimization experiments using [MOEAFramework](https://github.com/MOEAFramework/MOEAFramework). It was created as an Technologie Obiektowe (Object-Oriented Technologies) university project at AGH University of Krakow. Project task descriptions for each milestone (in Polish) are available in the `assignment/` folder.
+**MOEABench** is a Spring Boot-based platform for running and managing multi-objective optimization experiments using [MOEAFramework](https://github.com/MOEAFramework/MOEAFramework). It was created as an Technologie Obiektowe (Object-Oriented Technologies) university project at AGH University of Krakow. Project task descriptions for each milestone (in Polish) are available in the [docs/assignment](docs/assignment/README.md) folder.
 
 <table>
   <tr>
