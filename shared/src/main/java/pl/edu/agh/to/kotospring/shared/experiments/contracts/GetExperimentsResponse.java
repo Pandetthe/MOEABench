@@ -1,9 +1,11 @@
 package pl.edu.agh.to.kotospring.shared.experiments.contracts;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.util.ArrayList;
 import java.util.Collection;
 
-
+@JsonDeserialize(contentAs = GetExperimentsResponseData.class)
 public class GetExperimentsResponse extends ArrayList<GetExperimentsResponseData> {
     public GetExperimentsResponse() {
         super();

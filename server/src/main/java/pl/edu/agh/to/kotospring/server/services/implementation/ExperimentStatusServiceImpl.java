@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.repositories.*;
@@ -99,7 +101,13 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         part.setFinishedAt(OffsetDateTime.now());
         experimentPartExecutionRepository.saveAndFlush(part);
         RunId runId = part.getExperimentRun().getId();
-        experimentFinalizationService.finalizeRunIfComplete(runId);
+        // Schedule finalization after this transaction commits so the COMPLETED status is visible
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                experimentFinalizationService.finalizeRunIfComplete(runId);
+            }
+        });
     }
 
     @Override
@@ -114,7 +122,13 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
         part.setErrorMessage(errorMessage);
         experimentPartExecutionRepository.saveAndFlush(part);
         RunId runId = part.getExperimentRun().getId();
-        experimentFinalizationService.finalizeRunIfComplete(runId);
+        // Schedule finalization after this transaction commits so the FAILED status is visible
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                experimentFinalizationService.finalizeRunIfComplete(runId);
+            }
+        });
     }
 
     private ExperimentPartExecution getPartWithRunAndExperimentOrThrow(Long partId) {
