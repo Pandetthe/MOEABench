@@ -8,7 +8,6 @@ import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.models.PartStatusInfo;
 import pl.edu.agh.to.kotospring.shared.experiments.ExperimentPartStatus;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,8 +45,6 @@ public interface ExperimentPartExecutionRepository extends JpaRepository<Experim
             ExperimentPartStatus status, String indicator);
 
     List<ExperimentPartExecution> findAllByExperimentRunId(RunId id);
-
-    long countByExperimentRunIdAndStatusIn(RunId id, Collection<ExperimentPartStatus> statuses);
 
     @Query("""
             select new pl.edu.agh.to.kotospring.server.models.PartStatusInfo(p.status, p.errorMessage)

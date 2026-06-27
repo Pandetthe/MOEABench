@@ -69,5 +69,5 @@ public interface ExperimentRunRepository extends JpaRepository<ExperimentRun, Ru
 
   List<ExperimentRun> findAllByIdExperimentId(Long experimentId);
 
-  long countByIdExperimentIdAndStatusIn(Long experimentId, Collection<ExperimentRunStatus> statuses);
+  long countByIdExperimentId(Long experimentId);
 }

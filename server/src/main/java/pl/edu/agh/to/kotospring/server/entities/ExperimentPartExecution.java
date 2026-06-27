@@ -36,18 +36,17 @@ public class ExperimentPartExecution {
     @Column(name = "error_message", length = 2048)
     private String errorMessage;
 
-    @Column(name = "started_at")
+    @Column(name = "started_at", columnDefinition = "TIMESTAMPTZ")
     private OffsetDateTime startedAt;
 
-    @Column(name = "finished_at")
+    @Column(name = "finished_at", columnDefinition = "TIMESTAMPTZ")
     private OffsetDateTime finishedAt;
 
     @OneToMany(mappedBy = "experimentPartExecution", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private final Set<ExperimentPartSolution> solutions = new HashSet<>();
 
-    @Lob
     @Basic(fetch = FetchType.LAZY)
-    @Column(name = "plot_image")
+    @Column(name = "plot_image", columnDefinition = "bytea")
     private byte[] plotImage;
 
     public ExperimentPartExecution() {
@@ -178,5 +177,17 @@ public class ExperimentPartExecution {
 
     public void setPlotImage(byte[] plotImage) {
         this.plotImage = plotImage;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ExperimentPartExecution that)) return false;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
     }
 }

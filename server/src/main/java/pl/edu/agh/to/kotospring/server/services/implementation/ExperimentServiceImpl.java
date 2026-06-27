@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import pl.edu.agh.to.kotospring.server.entities.*;
 import pl.edu.agh.to.kotospring.server.entities.embeddables.RunId;
 import pl.edu.agh.to.kotospring.server.exceptions.AlgorithmNotFoundException;
+import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.ProblemNotFoundException;
 import pl.edu.agh.to.kotospring.server.models.ExperimentRunView;
 import pl.edu.agh.to.kotospring.server.models.GroupIndicatorAggregateRow;
@@ -102,7 +103,7 @@ public class ExperimentServiceImpl implements ExperimentService {
                     experimentRun.addPart(execution);
 
                     for (String indicatorName : requestData.indicators()) {
-                        ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, 0.0);
+                        ExperimentPartIndicator indicator = new ExperimentPartIndicator(indicatorName, null);
                         execution.addIndicator(indicator);
                     }
 
@@ -110,7 +111,6 @@ public class ExperimentServiceImpl implements ExperimentService {
                 }
 
                 experimentPartExecutionRepository.saveAll(runExecutions);
-                experimentPartExecutionRepository.flush();
 
                 for (int i = 0; i < definitions.size(); i++) {
                     ExperimentPartWithRequest pair = definitions.get(i);
@@ -246,74 +246,79 @@ public class ExperimentServiceImpl implements ExperimentService {
     @Transactional(readOnly = true)
     public Optional<Experiment> getExperimentResult(long id) {
         logger.debug("Fetching results for experiment ID {}", id);
-        return experimentRepository.findWithSolutionById(id);
+        return experimentRepository.findWithSolutionById(id).map(exp -> {
+            if (exp.getStatus() == ExperimentStatus.QUEUED || exp.getStatus() == ExperimentStatus.IN_PROGRESS) {
+                throw new NotAllPartsFinishedException();
+            }
+            return exp;
+        });
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ExperimentRun> getExperimentRunResult(long id, long runNo) {
         logger.debug("Fetching results for experiment ID {} run {}", id, runNo);
-        return experimentRunRepository.findWithFullSolutionById(new RunId(id, runNo));
+        return experimentRunRepository.findWithFullSolutionById(new RunId(id, runNo)).map(run -> {
+            if (run.getStatus() == ExperimentRunStatus.QUEUED || run.getStatus() == ExperimentRunStatus.IN_PROGRESS) {
+                throw new NotAllPartsFinishedException();
+            }
+            return run;
+        });
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ExperimentPartExecution> getExperimentPartResult(long id, long runNo, long partId) {
         logger.debug("Fetching results for experiment part ID {}", partId);
-        return experimentPartExecutionRepository.findWithFullSolutionById(new RunId(id, runNo), partId);
+        return experimentPartExecutionRepository.findWithFullSolutionById(new RunId(id, runNo), partId).map(part -> {
+            if (part.getStatus() == ExperimentPartStatus.QUEUED || part.getStatus() == ExperimentPartStatus.RUNNING) {
+                throw new NotAllPartsFinishedException();
+            }
+            return part;
+        });
     }
 
     @Override
     @Transactional
     public boolean deleteExperiment(long id) {
         logger.debug("Attempting to delete experiment ID {}", id);
-        return experimentRepository.findById(id).map(experiment -> {
-            experimentRepository.delete(experiment);
-            logger.info("Experiment ID {} deleted successfully", id);
-            return true;
-        }).orElseGet(() -> {
+        if (!experimentRepository.existsById(id)) {
             logger.info("Failed to delete experiment ID {}: Not found", id);
             return false;
-        });
+        }
+        experimentRepository.deleteById(id);
+        logger.info("Experiment ID {} deleted successfully", id);
+        return true;
     }
 
     @Override
     @Transactional
     public boolean deleteExperimentRun(long id, long runNo) {
         logger.debug("Attempting to delete experiment ID {} run {}", id, runNo);
-        return experimentRepository.findWithRunsById(id).map(experiment -> {
-            Optional<ExperimentRun> runToDelete = experiment.getRuns().stream()
-                    .filter(r -> r.getRunNo().equals(runNo))
-                    .findFirst();
-
-            if (runToDelete.isEmpty()) {
-                return false;
-            }
-
-            ExperimentRun run = runToDelete.get();
-            if (experiment.getRuns().size() == 1) {
-                logger.info("Deleting experiment ID {} because last run was removed", id);
-                experimentRepository.delete(experiment);
-            } else {
-                experiment.removeRun(run);
-                experimentRepository.save(experiment);
-                logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
-            }
-            return true;
-        }).orElseGet(() -> {
-            logger.info("Failed to delete experiment ID {} run {}: Experiment not found", id, runNo);
+        RunId runId = new RunId(id, runNo);
+        if (!experimentRunRepository.existsById(runId)) {
+            logger.info("Failed to delete experiment ID {} run {}: Not found", id, runNo);
             return false;
-        });
+        }
+        long runCount = experimentRunRepository.countByIdExperimentId(id);
+        if (runCount == 1) {
+            logger.info("Deleting experiment ID {} because last run was removed", id);
+            experimentRepository.deleteById(id);
+        } else {
+            experimentRunRepository.deleteById(runId);
+            logger.info("Experiment ID {} run {} deleted successfully", id, runNo);
+        }
+        return true;
     }
 
     @Override
     @Transactional(readOnly = true)
     public GetExperimentAggregateResponse getExperimentAggregate(long experimentId) {
         logger.debug("Calculating aggregate statistics for experiment ID {}", experimentId);
-        if (!experimentRepository.existsById(experimentId)) {
+        List<ExperimentPart> definitions = experimentPartRepository.findAllByExperimentId(experimentId);
+        if (definitions.isEmpty() && !experimentRepository.existsById(experimentId)) {
             throw new NotFoundException("Experiment not found");
         }
-        List<ExperimentPart> definitions = experimentPartRepository.findAllByExperimentId(experimentId);
 
         List<Object[]> rawRows = experimentAggregateRepository.findIndicatorAggregatesByExperimentId(experimentId);
         List<IndicatorAggregateRow> rows = rawRows.stream()
@@ -388,35 +393,34 @@ public class ExperimentServiceImpl implements ExperimentService {
                 String problem = problemEntry.getKey();
                 ExperimentPartMetadata metadata = findMetadataFor(group, algorithm, problem);
                 result.add(new GetExperimentAggregateData(
-                        algorithm, metadata.params, problem, problemEntry.getValue(), metadata.budget));
+                        algorithm, metadata.params(), problem, problemEntry.getValue(), metadata.budget()));
             }
         }
         return result;
     }
 
-    private static class ExperimentPartMetadata {
-        int budget = 0;
-        Map<String, String> params = Collections.emptyMap();
+    private record ExperimentPartMetadata(int budget, Map<String, String> params) {
+        static ExperimentPartMetadata empty() {
+            return new ExperimentPartMetadata(0, Collections.emptyMap());
+        }
     }
 
     private ExperimentPartMetadata findMetadataFor(ExperimentGroup group, String algorithm, String problem) {
-        ExperimentPartMetadata metadata = new ExperimentPartMetadata();
         if (group.getRuns().isEmpty()) {
-            return metadata;
+            return ExperimentPartMetadata.empty();
         }
         ExperimentRun representativeRun = group.getRuns().iterator().next();
         for (ExperimentPartExecution epe : representativeRun.getParts()) {
             ExperimentPart part = epe.getExperimentPart();
             if (part.getAlgorithm().equals(algorithm) && part.getProblem().equals(problem)) {
-                metadata.budget = part.getBudget();
-                metadata.params = new HashMap<>();
+                Map<String, String> params = new HashMap<>();
                 for (ExperimentPartAlgorithmParameter param : part.getParameters()) {
-                    metadata.params.put(param.getKey(), param.getValue());
+                    params.put(param.getKey(), param.getValue());
                 }
-                break;
+                return new ExperimentPartMetadata(part.getBudget(), params);
             }
         }
-        return metadata;
+        return ExperimentPartMetadata.empty();
     }
 
     @Override

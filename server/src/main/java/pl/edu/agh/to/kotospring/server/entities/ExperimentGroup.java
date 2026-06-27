@@ -113,4 +113,16 @@ public class ExperimentGroup {
     public Set<String> getAlgorithms() {
         return algorithms;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ExperimentGroup that)) return false;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
+    }
 }

@@ -147,18 +147,7 @@ public class ExperimentMapper {
     }
 
     private GetExperimentResultResponseDataPart mapToExperimentResultResponseDataPart(ExperimentPartExecution part) {
-        return new GetExperimentResultResponseDataPart(
-                part.getId(),
-                part.getSolutions().stream()
-                        .map(solution -> new AlgorithmResult(
-                                solution.getVariables(),
-                                solution.getObjectives(),
-                                solution.getConstraints()))
-                        .toList(),
-                part.getIndicators().stream()
-                        .collect(Collectors.toMap(
-                                ExperimentPartIndicator::getName,
-                                ExperimentPartIndicator::getValue)));
+        return new GetExperimentResultResponseDataPart(part.getId(), mapSolutions(part), mapIndicators(part));
     }
 
     public GetExperimentRunResultResponse mapToExperimentRunResultResponse(ExperimentRun experimentRun) {
@@ -168,34 +157,23 @@ public class ExperimentMapper {
     }
 
     private GetExperimentRunResultResponseData mapToExperimentRunResultResponseData(ExperimentPartExecution part) {
-        return new GetExperimentRunResultResponseData(
-                part.getId(),
-                part.getSolutions().stream()
-                        .map(solution -> new AlgorithmResult(
-                                solution.getVariables(),
-                                solution.getObjectives(),
-                                solution.getConstraints()))
-                        .toList(),
-                part.getIndicators().stream()
-                        .collect(Collectors.toMap(
-                                ExperimentPartIndicator::getName,
-                                ExperimentPartIndicator::getValue)));
+        return new GetExperimentRunResultResponseData(part.getId(), mapSolutions(part), mapIndicators(part));
     }
 
     public GetExperimentPartResultResponse mapToExperimentPartResultResponse(ExperimentPartExecution part) {
-        List<AlgorithmResult> results = part.getSolutions().stream()
-                .map(solution -> new AlgorithmResult(
-                        solution.getVariables(),
-                        solution.getObjectives(),
-                        solution.getConstraints()))
+        return new GetExperimentPartResultResponse(mapSolutions(part), mapIndicators(part));
+    }
+
+    private List<AlgorithmResult> mapSolutions(ExperimentPartExecution part) {
+        return part.getSolutions().stream()
+                .map(s -> new AlgorithmResult(s.getVariables(), s.getObjectives(), s.getConstraints()))
                 .toList();
+    }
 
-        Map<String, Double> indicatorsValues = part.getIndicators().stream()
-                .collect(Collectors.toMap(
-                        ExperimentPartIndicator::getName,
-                        ExperimentPartIndicator::getValue));
-
-        return new GetExperimentPartResultResponse(results, indicatorsValues);
+    private Map<String, Double> mapIndicators(ExperimentPartExecution part) {
+        return part.getIndicators().stream()
+                .filter(i -> i.getValue() != null)
+                .collect(Collectors.toMap(ExperimentPartIndicator::getName, ExperimentPartIndicator::getValue));
     }
 
     public GetExperimentGroupResponse mapToGroupResponse(ExperimentGroup group) {

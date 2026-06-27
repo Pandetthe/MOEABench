@@ -3,11 +3,11 @@ package pl.edu.agh.to.kotospring.server.controllers;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import pl.edu.agh.to.kotospring.server.exceptions.NotAllPartsFinishedException;
 import pl.edu.agh.to.kotospring.server.exceptions.NotFoundException;
 import pl.edu.agh.to.kotospring.server.mappers.ExperimentMapper;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentService;
@@ -33,7 +33,7 @@ public final class ExperimentController {
     @PostMapping
     public ResponseEntity<CreateExperimentResponse> create(@RequestBody CreateExperimentRequest body) {
         var experiment = experimentService.createExperiment(body);
-        return ResponseEntity.ok(experimentMapper.mapToCreateResponse(experiment));
+        return ResponseEntity.status(HttpStatus.CREATED).body(experimentMapper.mapToCreateResponse(experiment));
     }
 
     @GetMapping
@@ -150,13 +150,6 @@ public final class ExperimentController {
     @GetMapping("{id}/result")
     public ResponseEntity<GetExperimentResultResponse> getExperimentResult(@PathVariable long id) {
         return experimentService.getExperimentResult(id)
-                .map(exp -> {
-                    if (exp.getStatus() == ExperimentStatus.QUEUED ||
-                            exp.getStatus() == ExperimentStatus.IN_PROGRESS) {
-                        throw new NotAllPartsFinishedException();
-                    }
-                    return exp;
-                })
                 .map(experimentMapper::mapToExperimentResultResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
@@ -166,13 +159,6 @@ public final class ExperimentController {
     public ResponseEntity<GetExperimentRunResultResponse> getExperimentRunResult(
             @PathVariable long id, @PathVariable long runNo) {
         return experimentService.getExperimentRunResult(id, runNo)
-                .map(run -> {
-                    if (run.getStatus() == ExperimentRunStatus.QUEUED ||
-                            run.getStatus() == ExperimentRunStatus.IN_PROGRESS) {
-                        throw new NotAllPartsFinishedException();
-                    }
-                    return run;
-                })
                 .map(experimentMapper::mapToExperimentRunResultResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment " + id + " or Run " + runNo + " not found"));
@@ -182,13 +168,6 @@ public final class ExperimentController {
     public ResponseEntity<GetExperimentPartResultResponse> getExperimentPartResult(
             @PathVariable long id, @PathVariable long runNo, @PathVariable long partId) {
         return experimentService.getExperimentPartResult(id, runNo, partId)
-                .map(part -> {
-                    if (part.getStatus() == ExperimentPartStatus.QUEUED ||
-                            part.getStatus() == ExperimentPartStatus.RUNNING) {
-                        throw new NotAllPartsFinishedException();
-                    }
-                    return part;
-                })
                 .map(experimentMapper::mapToExperimentPartResultResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new NotFoundException("Experiment not found"));
@@ -220,7 +199,7 @@ public final class ExperimentController {
     public ResponseEntity<CreateExperimentGroupResponse> createExperimentGroup(
             @RequestBody CreateExperimentGroupRequest request) {
         var group = experimentService.createExperimentGroup(request.name());
-        return ResponseEntity.ok(new CreateExperimentGroupResponse(group.getId(), group.getName()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(new CreateExperimentGroupResponse(group.getId(), group.getName()));
     }
 
     @GetMapping("groups")

@@ -42,12 +42,11 @@ public final class IndicatorRegistryServiceImpl implements IndicatorRegistryServ
         return getIndicators(indicators, problem, referenceSet);
     }
 
+    private static final Set<String> VALID_INDICATOR_NAMES = Arrays.stream(StandardIndicator.values())
+            .map(Enum::name)
+            .collect(Collectors.toUnmodifiableSet());
+
     private boolean isValidIndicator(String name) {
-        try {
-            StandardIndicator.valueOf(name);
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
+        return VALID_INDICATOR_NAMES.contains(name);
     }
 }

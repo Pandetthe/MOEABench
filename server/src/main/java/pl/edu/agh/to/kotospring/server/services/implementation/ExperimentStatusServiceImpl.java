@@ -124,8 +124,13 @@ public class ExperimentStatusServiceImpl implements ExperimentStatusService {
 
     private void processIndicators(ExperimentPartExecution part, Indicators.IndicatorValues indicatorValues) {
         part.getIndicators().forEach(indicator -> {
-            StandardIndicator nameParsed = StandardIndicator.valueOf(indicator.getName());
-            indicator.setValue(indicatorValues.get(nameParsed));
+            try {
+                StandardIndicator nameParsed = StandardIndicator.valueOf(indicator.getName());
+                indicator.setValue(indicatorValues.get(nameParsed));
+            } catch (IllegalArgumentException e) {
+                logger.warn("Unrecognised indicator name '{}' stored for part {} — value left null",
+                        indicator.getName(), part.getId());
+            }
             experimentPartIndicatorRepository.save(indicator);
         });
     }

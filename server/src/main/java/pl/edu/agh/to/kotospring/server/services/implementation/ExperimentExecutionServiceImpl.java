@@ -11,10 +11,9 @@ import org.moeaframework.core.indicator.StandardIndicator;
 import org.moeaframework.core.population.NondominatedPopulation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import pl.edu.agh.to.kotospring.server.models.QueueData;
-import pl.edu.agh.to.kotospring.server.repositories.ExperimentPartExecutionRepository;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentExecutionService;
 import pl.edu.agh.to.kotospring.server.services.interfaces.ExperimentStatusService;
 
@@ -23,30 +22,37 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 @Service
 public class ExperimentExecutionServiceImpl implements ExperimentExecutionService {
     private final Logger logger = LoggerFactory.getLogger(ExperimentExecutionServiceImpl.class);
 
-    private final ExperimentPartExecutionRepository experimentPartExecutionRepository;
+    private final Executor experimentExecutor;
     private final ExperimentStatusService experimentStatusService;
 
-    public ExperimentExecutionServiceImpl(ExperimentPartExecutionRepository experimentPartExecutionRepository,
+    public ExperimentExecutionServiceImpl(
+            @Qualifier("experimentExecutor") Executor experimentExecutor,
             ExperimentStatusService experimentStatusService) {
-        this.experimentPartExecutionRepository = experimentPartExecutionRepository;
+        this.experimentExecutor = experimentExecutor;
         this.experimentStatusService = experimentStatusService;
     }
 
     @Override
-    @Async("experimentExecutor")
     public void enqueue(QueueData queueData) {
         Long partId = queueData.experimentPartId();
-        logger.info("Execution starting for ExperimentPart {}", partId);
-
-        if (!experimentPartExecutionRepository.existsById(partId)) {
-            logger.error("ExperimentPartExecution {} does not exist! Aborting...", partId);
-            return;
+        try {
+            experimentExecutor.execute(() -> runPart(queueData));
+        } catch (RejectedExecutionException e) {
+            logger.error("Experiment task rejected for part {} — executor queue full", partId);
+            experimentStatusService.markPartAsFailed(partId, "Executor queue full — task could not be scheduled");
         }
+    }
+
+    private void runPart(QueueData queueData) {
+        Long partId = queueData.experimentPartId();
+        logger.info("Execution starting for ExperimentPart {}", partId);
 
         try {
             experimentStatusService.markPartAsStarted(partId);

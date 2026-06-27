@@ -18,13 +18,13 @@ public class ExperimentPartIndicator {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "value", nullable = false)
-    private double value;
+    @Column(name = "value")
+    private Double value;
 
     public ExperimentPartIndicator() {
     }
 
-    public ExperimentPartIndicator(String name, double value) {
+    public ExperimentPartIndicator(String name, Double value) {
         this.name = name;
         this.value = value;
     }
@@ -52,11 +52,23 @@ public class ExperimentPartIndicator {
         this.name = name;
     }
 
-    public double getValue() {
+    public Double getValue() {
         return value;
     }
 
-    public void setValue(double value) {
+    public void setValue(Double value) {
         this.value = value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ExperimentPartIndicator that)) return false;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return id != null ? id.hashCode() : 0;
     }
 }
